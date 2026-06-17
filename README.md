@@ -56,6 +56,17 @@ The benchmark compares raw allocation APIs, allocator wrapper overhead, arena
 lifetime patterns, pool and free-list reuse, and debug allocator overhead. Notes
 live in [docs/benchmarks.md](docs/benchmarks.md).
 
+Run the overview example:
+
+```sh
+make example
+```
+
+The example in [examples/overview.c](examples/overview.c) parses records with
+`cl_sv`, stores them in a `cl_array`, backs allocations with `cl_alloc`, and uses
+`cl_libc` helpers for bounded byte and string operations. Notes live in
+[docs/examples.md](docs/examples.md).
+
 Project conventions live in [AGENTS.md](AGENTS.md). Documentation lives in
 [docs/](docs/) and should be updated alongside code changes. The project
 roadmap lives in [TODO.md](TODO.md).

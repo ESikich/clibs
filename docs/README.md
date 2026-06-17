@@ -16,5 +16,6 @@ This directory holds project documentation that should move with the code.
 - [String-View Library](cl_sv.md)
 - [Test Helpers](cl_test.md)
 - [Benchmark Helpers](cl_bench.md)
+- [Examples](examples.md)
 - [Benchmarks](benchmarks.md)
 - [Portability](portability.md)

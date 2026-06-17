@@ -14,13 +14,14 @@ ALLOC_OBJ = $(BUILD_DIR)/cl_alloc.o
 ARRAY_OBJ = $(BUILD_DIR)/cl_array.o
 LIBC_OBJ = $(BUILD_DIR)/cl_libc.o
 SV_OBJ = $(BUILD_DIR)/cl_sv.o
+EXAMPLE_OVERVIEW = $(BUILD_DIR)/overview
 TEST_ARRAY = $(BUILD_DIR)/test_array
 TEST_ALLOC = $(BUILD_DIR)/test_alloc
 TEST_LIBC = $(BUILD_DIR)/test_libc
 TEST_SV = $(BUILD_DIR)/test_sv
 BENCH_ALLOC = $(BUILD_DIR)/bench_alloc
 
-all: $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_LIBC) $(TEST_SV) $(BENCH_ALLOC)
+all: $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_LIBC) $(TEST_SV) $(BENCH_ALLOC) $(EXAMPLE_OVERVIEW)
 
 $(ALLOC_OBJ): src/cl_alloc.c include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
@@ -58,6 +59,10 @@ $(BENCH_ALLOC): bench/bench_alloc.c $(ALLOC_OBJ) include/cl_alloc.h include/cl_b
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) bench/bench_alloc.c $(ALLOC_OBJ) -o $@
 
+$(EXAMPLE_OVERVIEW): examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(LIBC_OBJ) $(SV_OBJ) include/cl_alloc.h include/cl_array.h include/cl_libc.h include/cl_sv.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(LIBC_OBJ) $(SV_OBJ) -o $@
+
 test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_LIBC) $(TEST_SV)
 	$(TEST_ALLOC)
 	$(TEST_ARRAY)
@@ -66,6 +71,9 @@ test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_LIBC) $(TEST_SV)
 
 bench: FORCE $(BENCH_ALLOC)
 	$(BENCH_ALLOC)
+
+example: FORCE $(EXAMPLE_OVERVIEW)
+	$(EXAMPLE_OVERVIEW)
 
 clean: FORCE
 	rm -rf $(BUILD_DIR)
