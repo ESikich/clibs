@@ -18,6 +18,7 @@ This directory holds project documentation that should move with the code.
 - [libc-mini Library](cl_libc.md)
 - [Path Library](cl_path.md)
 - [String-View Library](cl_sv.md)
+- [UTF-8 Library](cl_utf8.md)
 - [Test Helpers](cl_test.md)
 - [Benchmark Helpers](cl_bench.md)
 - [Examples](examples.md)

@@ -20,6 +20,7 @@ working together in one small program:
 - `cl_file` writes the example input to a temporary file and reads it back into
   allocator-owned storage before parsing.
 - `cl_path` joins and inspects a lexical POSIX path without filesystem lookup.
+- `cl_utf8` validates and counts code points in the input byte span.
 - `cl_libc` handles bounded byte copying, clearing, moving, and string
   comparison.
 

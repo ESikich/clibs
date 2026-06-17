@@ -39,7 +39,7 @@ paths as well as fast paths.
 - [x] `file`: read/write whole file.
 - [x] `file`: streaming file helpers.
 - [x] `path`: path normalization, joining, basename/dirname.
-- [ ] `utf8`: validation, iteration, encoding/decoding.
+- [x] `utf8`: validation, iteration, encoding/decoding.
 - [x] `test`: tiny unit test framework.
 
 ## Core Runtime
@@ -82,7 +82,7 @@ paths as well as fast paths.
 
 ## Parsing / Encoding
 
-- [ ] `utf8`: validation, iteration, encoding/decoding.
+- [x] `utf8`: validation, iteration, encoding/decoding.
 - [ ] `ascii`: classification and case conversion without locale.
 - [ ] `parse`: integer/float parsing with explicit error handling.
 - [ ] `format`: lightweight `printf` alternative.
@@ -145,3 +145,4 @@ Foundation work completed:
 - [x] POSIX whole-file read/write helpers
 - [x] POSIX streaming file helpers
 - [x] lexical POSIX path normalization, joining, basename, and dirname helpers
+- [x] UTF-8 validation, iteration, encoding, and decoding helpers

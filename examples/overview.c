@@ -13,6 +13,7 @@
 #include "cl_libc.h"
 #include "cl_path.h"
 #include "cl_sv.h"
+#include "cl_utf8.h"
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -289,6 +290,17 @@ int main(void)
     }
 
     printf("input file: %zu bytes\n", input_file.size);
+    if (!cl_utf8_validate((const char *)input_file.data, input_file.size)) {
+        fputs("input is not valid UTF-8\n", stderr);
+        cl_file_data_free(&input_file);
+        (void)unlink(input_path);
+        item_array_free(&items);
+        cl_debug_allocator_release(&debug);
+        return 1;
+    }
+    printf(
+        "input text: %zu codepoints\n",
+        cl_utf8_count_codepoints((const char *)input_file.data, input_file.size));
     if (!parse_items(
             cl_sv_from_parts((const char *)input_file.data, input_file.size),
             &items)) {
