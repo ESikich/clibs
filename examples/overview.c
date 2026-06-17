@@ -7,6 +7,7 @@
 
 #include "cl_alloc.h"
 #include "cl_array.h"
+#include "cl_buffer.h"
 #include "cl_libc.h"
 #include "cl_sv.h"
 
@@ -185,6 +186,29 @@ static bool queue_event(cl_allocator *allocator, const item *source)
     return true;
 }
 
+static void preview_name_stream(const item_array *items)
+{
+    unsigned char storage[32];
+    char out[17];
+    cl_ring_buffer ring;
+    size_t read;
+
+    if (!items || items->size == 0u) {
+        return;
+    }
+
+    cl_ring_buffer_init(&ring, storage, sizeof(storage));
+    (void)cl_ring_buffer_write(
+        &ring,
+        items->data[0].name,
+        cl_strlen(items->data[0].name));
+    (void)cl_ring_buffer_write(&ring, "\n", 1u);
+
+    read = cl_ring_buffer_read(&ring, out, sizeof(out) - 1u);
+    out[read] = '\0';
+    printf("ring preview: %s", out);
+}
+
 int main(void)
 {
     static unsigned char list_storage[4096];
@@ -248,6 +272,7 @@ int main(void)
         cl_debug_allocator_release(&debug);
         return 1;
     }
+    preview_name_stream(&items);
 
     printf(
         "debug: allocations=%zu frees=%zu peak=%zu live=%zu\n",

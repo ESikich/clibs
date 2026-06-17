@@ -34,7 +34,7 @@ paths as well as fast paths.
 - [x] `string-view`: non-owning string slices, trimming, splitting, parsing
   helpers.
 - [x] `array`: typed or macro-based dynamic arrays.
-- [ ] `buffer`: byte buffers, growable arrays, ring buffers.
+- [x] `buffer`: byte buffers, growable arrays, ring buffers.
 - [ ] `hash`: hash functions plus hash table.
 - [ ] `file`: read/write whole file, streaming file helpers.
 - [ ] `path`: path normalization, joining, basename/dirname.
@@ -49,7 +49,7 @@ paths as well as fast paths.
   allocator.
 - [x] `string-view`: non-owning string slices, trimming, splitting, parsing
   helpers.
-- [ ] `buffer`: byte buffers, growable arrays, ring buffers.
+- [x] `buffer`: byte buffers, growable arrays, ring buffers.
 - [ ] `bitset`: fixed and dynamic bitsets, bit operations, bit scans.
 - [ ] `endian`: byte-order conversion, unaligned loads/stores.
 - [ ] `atomics`: thin wrappers around atomics or compiler intrinsics.
@@ -138,3 +138,4 @@ Foundation work completed:
 - [x] reusable unit test helper
 - [x] reusable microbenchmark helper
 - [x] macro-generated typed dynamic arrays with checked growth
+- [x] growable byte buffers and caller-owned ring buffers
