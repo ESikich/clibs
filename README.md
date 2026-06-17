@@ -36,6 +36,10 @@ primitives: `cl_memset`, `cl_memcpy`, `cl_memmove`, `cl_memcmp`, `cl_strlen`,
 `cl_sv` provides non-owning byte string views with trimming, comparison,
 delimiter splitting, and checked decimal integer parsing.
 
+`cl_array` provides macro-generated typed dynamic arrays backed by `cl_allocator`
+with checked capacity growth, reserve/resize/push/pop operations, and
+zero-initialized growth through `resize`.
+
 Build and test:
 
 ```sh

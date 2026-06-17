@@ -23,6 +23,7 @@ paths as well as fast paths.
   `memcmp`, `strlen`, `strcmp`, `strchr`, etc.
 - [x] `test`: tiny unit test framework.
 - [x] `bench`: reusable microbenchmark harness.
+- [x] `array`: macro-generated typed dynamic arrays.
 
 ## Suggested First Batch
 
@@ -32,7 +33,7 @@ paths as well as fast paths.
   allocator.
 - [x] `string-view`: non-owning string slices, trimming, splitting, parsing
   helpers.
-- [ ] `array`: typed or macro-based dynamic arrays.
+- [x] `array`: typed or macro-based dynamic arrays.
 - [ ] `buffer`: byte buffers, growable arrays, ring buffers.
 - [ ] `hash`: hash functions plus hash table.
 - [ ] `file`: read/write whole file, streaming file helpers.
@@ -56,7 +57,7 @@ paths as well as fast paths.
 
 ## Data Structures
 
-- [ ] `array`: typed or macro-based dynamic arrays.
+- [x] `array`: typed or macro-based dynamic arrays.
 - [ ] `list`: intrusive linked lists.
 - [ ] `queue`: FIFO queues, ring queues, priority queues.
 - [ ] `hash`: hash functions plus hash table.
@@ -136,3 +137,4 @@ Foundation work completed:
   allocation
 - [x] reusable unit test helper
 - [x] reusable microbenchmark helper
+- [x] macro-generated typed dynamic arrays with checked growth
