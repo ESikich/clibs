@@ -11,6 +11,7 @@
 #include "cl_file.h"
 #include "cl_hash.h"
 #include "cl_libc.h"
+#include "cl_path.h"
 #include "cl_sv.h"
 
 #include <inttypes.h>
@@ -258,6 +259,7 @@ int main(void)
     cl_file_data input_file;
     item_array items;
     char input_path[128];
+    char report_path[128];
     void *found = NULL;
 
     if (!cl_free_list_init(&free_list, list_storage, sizeof(list_storage))) {
@@ -347,6 +349,11 @@ int main(void)
         return 1;
     }
     preview_name_stream(&items);
+    if (cl_path_join("/tmp/clibs_overview", "../clibs_report.txt", report_path, sizeof(report_path), NULL)) {
+        cl_path_view report_name = cl_path_basename(report_path);
+
+        printf("path: %.*s\n", (int)report_name.size, report_name.data);
+    }
 
     printf(
         "debug: allocations=%zu frees=%zu peak=%zu live=%zu\n",

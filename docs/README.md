@@ -16,6 +16,7 @@ This directory holds project documentation that should move with the code.
 - [File Library](cl_file.md)
 - [Hash Library](cl_hash.md)
 - [libc-mini Library](cl_libc.md)
+- [Path Library](cl_path.md)
 - [String-View Library](cl_sv.md)
 - [Test Helpers](cl_test.md)
 - [Benchmark Helpers](cl_bench.md)

@@ -19,6 +19,7 @@ working together in one small program:
   handling.
 - `cl_file` writes the example input to a temporary file and reads it back into
   allocator-owned storage before parsing.
+- `cl_path` joins and inspects a lexical POSIX path without filesystem lookup.
 - `cl_libc` handles bounded byte copying, clearing, moving, and string
   comparison.
 

@@ -39,3 +39,9 @@ CPPFLAGS = -D_POSIX_C_SOURCE=200809L -Iinclude
 whole-file and streaming helpers. File reads and writes retry interrupted
 transfer calls, and write permissions are created as `0666` filtered by the
 process umask.
+
+## Lexical Paths
+
+`cl_path` handles POSIX-style slash-separated paths lexically in caller-owned
+buffers. It intentionally avoids `realpath`, `basename`, and `dirname` because
+those APIs either touch filesystem state or may mutate caller-provided buffers.
