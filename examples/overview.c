@@ -7,6 +7,7 @@
 
 #include "cl_alloc.h"
 #include "cl_array.h"
+#include "cl_ascii.h"
 #include "cl_buffer.h"
 #include "cl_file.h"
 #include "cl_hash.h"
@@ -61,6 +62,9 @@ static bool parse_item(cl_sv field, item *out)
     count_text = cl_sv_trim(count_text);
     if (name.size == 0u ||
         cl_sv_parse_u64(count_text, &count) != CL_SV_PARSE_OK) {
+        return false;
+    }
+    if (!cl_ascii_is_alpha((unsigned char)name.data[0])) {
         return false;
     }
 

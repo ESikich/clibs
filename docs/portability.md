@@ -45,3 +45,9 @@ process umask.
 `cl_path` handles POSIX-style slash-separated paths lexically in caller-owned
 buffers. It intentionally avoids `realpath`, `basename`, and `dirname` because
 those APIs either touch filesystem state or may mutate caller-provided buffers.
+
+## Locale-Free ASCII
+
+`cl_ascii` intentionally avoids `<ctype.h>` so classification and case
+conversion are independent of the current locale and well-defined for negative
+values and bytes above `0x7f`.

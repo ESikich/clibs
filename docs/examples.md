@@ -21,6 +21,7 @@ working together in one small program:
   allocator-owned storage before parsing.
 - `cl_path` joins and inspects a lexical POSIX path without filesystem lookup.
 - `cl_utf8` validates and counts code points in the input byte span.
+- `cl_ascii` checks record names with locale-free byte classification.
 - `cl_libc` handles bounded byte copying, clearing, moving, and string
   comparison.
 

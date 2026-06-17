@@ -12,6 +12,7 @@ This directory holds project documentation that should move with the code.
 - [Project TODO](../TODO.md)
 - [Allocator Library](cl_alloc.md)
 - [Array Library](cl_array.md)
+- [ASCII Library](cl_ascii.md)
 - [Buffer Library](cl_buffer.md)
 - [File Library](cl_file.md)
 - [Hash Library](cl_hash.md)
