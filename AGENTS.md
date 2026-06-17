@@ -52,6 +52,12 @@ instead of adding prose that repeats nearby checklist items. Before committing,
 scan `TODO.md` for contradictions between Current Focus, category sections, and
 Build Order Notes.
 
+# Git Workflow
+
+Plain `git` is the default tool for local commits and pushes. Do not require the
+GitHub CLI for ordinary commit/push requests, and do not call out missing `gh`
+unless the user specifically asks for GitHub CLI behavior or PR automation.
+
 # Verification
 
 Run `make test` after code changes. Run `make bench` when allocator behavior or
