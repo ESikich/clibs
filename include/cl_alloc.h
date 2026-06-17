@@ -69,6 +69,7 @@ size_t cl_arena_remaining(const cl_arena *arena);
 cl_allocator cl_arena_allocator(cl_arena *arena);
 
 typedef struct cl_pool {
+    unsigned char *state;
     unsigned char *base;
     size_t capacity;
     size_t block_size;
@@ -77,6 +78,9 @@ typedef struct cl_pool {
     size_t block_count;
     size_t free_count;
     void *free_list;
+    size_t invalid_free_count;
+    size_t mismatch_count;
+    size_t double_free_count;
 } cl_pool;
 
 /*
@@ -93,6 +97,9 @@ void cl_pool_reset(cl_pool *pool);
 size_t cl_pool_block_count(const cl_pool *pool);
 size_t cl_pool_free_count(const cl_pool *pool);
 size_t cl_pool_used_count(const cl_pool *pool);
+size_t cl_pool_invalid_free_count(const cl_pool *pool);
+size_t cl_pool_mismatch_count(const cl_pool *pool);
+size_t cl_pool_double_free_count(const cl_pool *pool);
 cl_allocator cl_pool_allocator(cl_pool *pool);
 
 typedef struct cl_free_list {
@@ -100,6 +107,9 @@ typedef struct cl_free_list {
     size_t capacity;
     size_t free_bytes;
     void *free_list;
+    size_t invalid_free_count;
+    size_t mismatch_count;
+    size_t double_free_count;
 } cl_free_list;
 
 /*
@@ -112,6 +122,9 @@ void cl_free_list_reset(cl_free_list *list);
 size_t cl_free_list_capacity(const cl_free_list *list);
 size_t cl_free_list_free_bytes(const cl_free_list *list);
 size_t cl_free_list_used_bytes(const cl_free_list *list);
+size_t cl_free_list_invalid_free_count(const cl_free_list *list);
+size_t cl_free_list_mismatch_count(const cl_free_list *list);
+size_t cl_free_list_double_free_count(const cl_free_list *list);
 cl_allocator cl_free_list_allocator(cl_free_list *list);
 
 typedef struct cl_debug_allocator {

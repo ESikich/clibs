@@ -127,6 +127,6 @@ The next allocator work should be:
 
 - [x] fixed-size pool allocator
 - [x] free-list allocator
-- [ ] debug checks for pool/free-list allocators
+- [x] debug checks for pool/free-list allocators
 - [x] benchmarks that compare pool/free-list behavior against arena and system
   allocation

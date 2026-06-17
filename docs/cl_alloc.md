@@ -59,7 +59,15 @@ if (cl_pool_init(&pool, storage, sizeof(storage), 64, 16)) {
 Each successful allocation consumes one block. Requests must be non-zero, no
 larger than the configured block size, and no more strictly aligned than the
 configured block alignment. `cl_pool_reset` rebuilds the free list and
-invalidates outstanding allocations.
+invalidates outstanding allocations. Pools reserve one byte of caller storage
+per slot for allocation-state diagnostics, so `cl_pool_block_count` is the
+authoritative usable block count after initialization.
+
+Pool frees and resizes record contract violations through
+`cl_pool_invalid_free_count`, `cl_pool_mismatch_count`, and
+`cl_pool_double_free_count`. Invalid frees include foreign pointers and pointers
+inside a slot; mismatches include wrong sizes or alignments; double frees are
+recognized before the slot is linked into the free list again.
 
 ## Free Lists
 
@@ -83,6 +91,10 @@ rejected and leave the allocation owned by the caller. `cl_free_list_reset`
 rebuilds one free block over the full backing storage and invalidates
 outstanding allocations.
 
+Free-list frees and resizes record contract violations through
+`cl_free_list_invalid_free_count`, `cl_free_list_mismatch_count`, and
+`cl_free_list_double_free_count`.
+
 ## Safety Properties
 
 - Zero-size allocations return `NULL`.
@@ -90,9 +102,11 @@ outstanding allocations.
 - Internal size additions and alignment rounding are checked for overflow.
 - Arena restore only accepts marks at or before the current arena offset.
 - Pool frees reject pointers outside the pool and pointers that do not point to
-  the start of a pool slot.
+  the start of a pool slot. Pool double frees are rejected before they can link
+  the same slot into the free list twice.
 - Free-list frees reject pointers outside the managed storage and size/alignment
-  mismatches for recognized free-list allocations.
+  mismatches for recognized free-list allocations. Free-list double frees are
+  detected when the pointer falls inside an already-free block.
 - Debug allocations are quarantined until `cl_debug_allocator_release` so double
   frees can be detected without reading memory already returned to the backing
   allocator.

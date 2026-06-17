@@ -21,6 +21,8 @@
 #define CL_DEBUG_GUARD_BYTE 0xA5u
 #define CL_DEBUG_FREED_BYTE 0xDDu
 #define CL_FREE_LIST_MAGIC 0xC1FEEE1157A110C5ull
+#define CL_POOL_SLOT_FREE 0u
+#define CL_POOL_SLOT_USED 1u
 
 typedef struct cl_debug_header {
     struct cl_debug_header *next;
@@ -408,10 +410,11 @@ bool cl_pool_init(
     size_t block_size,
     size_t block_align)
 {
+    unsigned char *state;
     unsigned char *base;
     uintptr_t raw;
     uintptr_t aligned;
-    size_t padding;
+    uintptr_t end;
     size_t min_block_size;
     size_t stride;
     size_t count;
@@ -421,6 +424,7 @@ bool cl_pool_init(
         return false;
     }
 
+    pool->state = NULL;
     pool->base = NULL;
     pool->capacity = 0u;
     pool->block_size = 0u;
@@ -429,6 +433,9 @@ bool cl_pool_init(
     pool->block_count = 0u;
     pool->free_count = 0u;
     pool->free_list = NULL;
+    pool->invalid_free_count = 0u;
+    pool->mismatch_count = 0u;
+    pool->double_free_count = 0u;
 
     if (!buffer || capacity == 0u || block_size == 0u ||
         !cl_is_valid_align(block_align)) {
@@ -449,23 +456,43 @@ bool cl_pool_init(
     }
 
     raw = (uintptr_t)buffer;
-    aligned = (raw + (uintptr_t)(block_align - 1u)) & ~(uintptr_t)(block_align - 1u);
-    if (aligned < raw) {
+    if (capacity > UINTPTR_MAX - raw) {
         return false;
     }
+    end = raw + capacity;
 
-    padding = (size_t)(aligned - raw);
-    if (padding > capacity) {
-        return false;
-    }
-
-    capacity -= padding;
     count = capacity / stride;
+    while (count != 0u) {
+        uintptr_t after_state;
+        size_t block_bytes;
+
+        if (raw > UINTPTR_MAX - count) {
+            return false;
+        }
+
+        after_state = raw + count;
+        aligned = (after_state + (uintptr_t)(block_align - 1u)) &
+                  ~(uintptr_t)(block_align - 1u);
+        if (aligned < after_state || aligned > end) {
+            count--;
+            continue;
+        }
+
+        block_bytes = count * stride;
+        if (block_bytes <= (size_t)(end - aligned)) {
+            break;
+        }
+
+        count--;
+    }
+
     if (count == 0u) {
         return false;
     }
 
+    state = (unsigned char *)raw;
     base = (unsigned char *)aligned;
+    pool->state = state;
     pool->base = base;
     pool->capacity = count * stride;
     pool->block_size = block_size;
@@ -473,6 +500,7 @@ bool cl_pool_init(
     pool->block_stride = stride;
     pool->block_count = count;
     pool->free_count = count;
+    memset(pool->state, CL_POOL_SLOT_FREE, count);
 
     /*
      * Free slots store the next pointer in the slot itself. block_stride is
@@ -505,6 +533,7 @@ void cl_pool_reset(cl_pool *pool)
     }
     pool->free_list = pool->base;
     pool->free_count = pool->block_count;
+    memset(pool->state, CL_POOL_SLOT_FREE, pool->block_count);
 }
 
 size_t cl_pool_block_count(const cl_pool *pool)
@@ -524,6 +553,21 @@ size_t cl_pool_used_count(const cl_pool *pool)
     }
 
     return pool->block_count - pool->free_count;
+}
+
+size_t cl_pool_invalid_free_count(const cl_pool *pool)
+{
+    return pool ? pool->invalid_free_count : 0u;
+}
+
+size_t cl_pool_mismatch_count(const cl_pool *pool)
+{
+    return pool ? pool->mismatch_count : 0u;
+}
+
+size_t cl_pool_double_free_count(const cl_pool *pool)
+{
+    return pool ? pool->double_free_count : 0u;
 }
 
 static bool cl_pool_owns_slot(const cl_pool *pool, const void *ptr)
@@ -547,10 +591,37 @@ static bool cl_pool_owns_slot(const cl_pool *pool, const void *ptr)
     return (offset % pool->block_stride) == 0u;
 }
 
+static size_t cl_pool_slot_index(const cl_pool *pool, const void *ptr)
+{
+    uintptr_t base;
+    uintptr_t slot;
+
+    if (!pool || !pool->base || !ptr) {
+        return 0u;
+    }
+
+    base = (uintptr_t)pool->base;
+    slot = (uintptr_t)ptr;
+    return (size_t)(slot - base) / pool->block_stride;
+}
+
+static bool cl_pool_slot_is_free(const cl_pool *pool, const void *ptr)
+{
+    size_t index;
+
+    if (!pool || !pool->state || !cl_pool_owns_slot(pool, ptr)) {
+        return false;
+    }
+
+    index = cl_pool_slot_index(pool, ptr);
+    return index < pool->block_count && pool->state[index] == CL_POOL_SLOT_FREE;
+}
+
 static void *cl_pool_alloc(void *ctx, size_t size, size_t align)
 {
     cl_pool *pool = (cl_pool *)ctx;
     void *slot;
+    size_t index;
 
     if (!cl_pool_request_fits(pool, size, align) || !pool->free_list) {
         return NULL;
@@ -558,6 +629,10 @@ static void *cl_pool_alloc(void *ctx, size_t size, size_t align)
 
     slot = pool->free_list;
     memcpy(&pool->free_list, slot, sizeof(pool->free_list));
+    index = cl_pool_slot_index(pool, slot);
+    if (index < pool->block_count) {
+        pool->state[index] = CL_POOL_SLOT_USED;
+    }
     pool->free_count--;
     return slot;
 }
@@ -571,9 +646,23 @@ static void *cl_pool_resize(
 {
     cl_pool *pool = (cl_pool *)ctx;
 
-    if (!ptr || !cl_pool_owns_slot(pool, ptr) ||
-        !cl_pool_request_fits(pool, old_size, align) ||
+    if (!pool || !ptr) {
+        return NULL;
+    }
+
+    if (!cl_pool_owns_slot(pool, ptr)) {
+        pool->invalid_free_count++;
+        return NULL;
+    }
+
+    if (cl_pool_slot_is_free(pool, ptr)) {
+        pool->double_free_count++;
+        return NULL;
+    }
+
+    if (!cl_pool_request_fits(pool, old_size, align) ||
         !cl_pool_request_fits(pool, new_size, align)) {
+        pool->mismatch_count++;
         return NULL;
     }
 
@@ -583,13 +672,33 @@ static void *cl_pool_resize(
 static void cl_pool_free(void *ctx, void *ptr, size_t size, size_t align)
 {
     cl_pool *pool = (cl_pool *)ctx;
+    size_t index;
 
-    if (!cl_pool_request_fits(pool, size, align) || !cl_pool_owns_slot(pool, ptr)) {
+    if (!pool || !ptr) {
+        return;
+    }
+
+    if (!cl_pool_owns_slot(pool, ptr)) {
+        pool->invalid_free_count++;
+        return;
+    }
+
+    if (!cl_pool_request_fits(pool, size, align)) {
+        pool->mismatch_count++;
+        return;
+    }
+
+    if (cl_pool_slot_is_free(pool, ptr)) {
+        pool->double_free_count++;
         return;
     }
 
     memcpy(ptr, &pool->free_list, sizeof(pool->free_list));
     pool->free_list = ptr;
+    index = cl_pool_slot_index(pool, ptr);
+    if (index < pool->block_count) {
+        pool->state[index] = CL_POOL_SLOT_FREE;
+    }
     if (pool->free_count < pool->block_count) {
         pool->free_count++;
     }
@@ -644,6 +753,9 @@ bool cl_free_list_init(cl_free_list *list, void *buffer, size_t capacity)
     list->capacity = 0u;
     list->free_bytes = 0u;
     list->free_list = NULL;
+    list->invalid_free_count = 0u;
+    list->mismatch_count = 0u;
+    list->double_free_count = 0u;
 
     min_block_size = cl_free_list_min_block_size();
     if (!buffer || capacity < min_block_size) {
@@ -709,6 +821,21 @@ size_t cl_free_list_used_bytes(const cl_free_list *list)
     return list->capacity - list->free_bytes;
 }
 
+size_t cl_free_list_invalid_free_count(const cl_free_list *list)
+{
+    return list ? list->invalid_free_count : 0u;
+}
+
+size_t cl_free_list_mismatch_count(const cl_free_list *list)
+{
+    return list ? list->mismatch_count : 0u;
+}
+
+size_t cl_free_list_double_free_count(const cl_free_list *list)
+{
+    return list ? list->double_free_count : 0u;
+}
+
 static bool cl_free_list_owns_ptr(const cl_free_list *list, const void *ptr)
 {
     uintptr_t base;
@@ -722,6 +849,34 @@ static bool cl_free_list_owns_ptr(const cl_free_list *list, const void *ptr)
     addr = (uintptr_t)ptr;
     return list->capacity <= UINTPTR_MAX - base && addr >= base &&
            addr < base + list->capacity;
+}
+
+static bool cl_free_list_ptr_is_free(const cl_free_list *list, const void *ptr)
+{
+    const cl_free_list_node *node;
+    uintptr_t addr;
+
+    if (!list || !ptr) {
+        return false;
+    }
+
+    addr = (uintptr_t)ptr;
+    node = (const cl_free_list_node *)list->free_list;
+    while (node) {
+        uintptr_t block = (uintptr_t)node;
+
+        if (node->size > UINTPTR_MAX - block) {
+            return false;
+        }
+
+        if (addr >= block && addr < block + node->size) {
+            return true;
+        }
+
+        node = node->next;
+    }
+
+    return false;
 }
 
 static void cl_free_list_insert_block(
@@ -936,9 +1091,26 @@ static void cl_free_list_free(void *ctx, void *ptr, size_t size, size_t align)
     unsigned char *block;
     size_t block_size;
 
-    if (!list || !ptr || size == 0u || !cl_is_valid_align(align) ||
-        !cl_free_list_header_for_ptr(list, ptr, &header) ||
-        header->user_size != size || header->user_align != align) {
+    if (!list || !ptr) {
+        return;
+    }
+
+    if (size == 0u || !cl_is_valid_align(align)) {
+        list->mismatch_count++;
+        return;
+    }
+
+    if (!cl_free_list_header_for_ptr(list, ptr, &header)) {
+        if (cl_free_list_owns_ptr(list, ptr) && cl_free_list_ptr_is_free(list, ptr)) {
+            list->double_free_count++;
+        } else {
+            list->invalid_free_count++;
+        }
+        return;
+    }
+
+    if (header->user_size != size || header->user_align != align) {
+        list->mismatch_count++;
         return;
     }
 
@@ -981,9 +1153,26 @@ static void *cl_free_list_resize(
         return NULL;
     }
 
-    if (!list || old_size == 0u || !cl_is_valid_align(align) ||
-        !cl_free_list_header_for_ptr(list, ptr, &header) ||
-        header->user_size != old_size || header->user_align != align) {
+    if (!list) {
+        return NULL;
+    }
+
+    if (old_size == 0u || !cl_is_valid_align(align)) {
+        list->mismatch_count++;
+        return NULL;
+    }
+
+    if (!cl_free_list_header_for_ptr(list, ptr, &header)) {
+        if (cl_free_list_owns_ptr(list, ptr) && cl_free_list_ptr_is_free(list, ptr)) {
+            list->double_free_count++;
+        } else {
+            list->invalid_free_count++;
+        }
+        return NULL;
+    }
+
+    if (header->user_size != old_size || header->user_align != align) {
+        list->mismatch_count++;
         return NULL;
     }
 

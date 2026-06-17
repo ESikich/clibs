@@ -224,15 +224,25 @@ static int test_pool_allocator_rejects_bad_requests(void)
     grown = cl_resize(&allocator, ptr, 16u, 16u, 8u);
     CHECK(grown == ptr);
     CHECK(cl_resize(&allocator, ptr, 16u, 24u, 8u) == NULL);
+    CHECK(cl_pool_mismatch_count(&pool) == 1u);
 
     cl_free(&allocator, foreign, 16u, 8u);
     CHECK(cl_pool_used_count(&pool) == 1u);
+    CHECK(cl_pool_invalid_free_count(&pool) == 1u);
 
     cl_free(&allocator, (unsigned char *)ptr + 1u, 16u, 8u);
     CHECK(cl_pool_used_count(&pool) == 1u);
+    CHECK(cl_pool_invalid_free_count(&pool) == 2u);
+
+    cl_free(&allocator, ptr, 8u, 16u);
+    CHECK(cl_pool_used_count(&pool) == 1u);
+    CHECK(cl_pool_mismatch_count(&pool) == 2u);
 
     cl_free(&allocator, ptr, 16u, 8u);
     CHECK(cl_pool_used_count(&pool) == 0u);
+    cl_free(&allocator, ptr, 16u, 8u);
+    CHECK(cl_pool_used_count(&pool) == 0u);
+    CHECK(cl_pool_double_free_count(&pool) == 1u);
 
     return 0;
 }
@@ -334,15 +344,21 @@ static int test_free_list_allocator_rejects_bad_requests(void)
 
     cl_free(&allocator, foreign, 48u, 8u);
     CHECK(cl_free_list_used_bytes(&list) == used);
+    CHECK(cl_free_list_invalid_free_count(&list) == 1u);
 
     cl_free(&allocator, ptr, 32u, 8u);
     CHECK(cl_free_list_used_bytes(&list) == used);
+    CHECK(cl_free_list_mismatch_count(&list) == 1u);
 
     cl_free(&allocator, ptr, 48u, 16u);
     CHECK(cl_free_list_used_bytes(&list) == used);
+    CHECK(cl_free_list_mismatch_count(&list) == 2u);
 
     cl_free(&allocator, ptr, 48u, 8u);
     CHECK(cl_free_list_used_bytes(&list) == 0u);
+    cl_free(&allocator, ptr, 48u, 8u);
+    CHECK(cl_free_list_used_bytes(&list) == 0u);
+    CHECK(cl_free_list_double_free_count(&list) == 1u);
 
     return 0;
 }

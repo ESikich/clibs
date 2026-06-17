@@ -22,6 +22,9 @@ that portability envelope unless a later project decision changes it.
 - variable-size free-list allocator over caller-owned storage
 - debug allocator wrapper with guard bytes, size/alignment mismatch detection, double-free detection for its own pointers, live byte counters, and peak byte counters
 
+Pool and free-list allocators also expose counters for invalid frees,
+size/alignment mismatches, and double-free attempts.
+
 Build and test:
 
 ```sh
