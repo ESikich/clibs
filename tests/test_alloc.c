@@ -137,6 +137,106 @@ static int test_arena_resize(void)
     return 0;
 }
 
+static int test_pool_allocator_reuses_blocks(void)
+{
+    unsigned char storage[256];
+    cl_pool pool;
+    cl_allocator allocator;
+    void *a;
+    void *b;
+    void *c;
+
+    CHECK(cl_pool_init(&pool, storage, sizeof(storage), 24u, 16u));
+    allocator = cl_pool_allocator(&pool);
+    CHECK(cl_pool_block_count(&pool) > 0u);
+    CHECK(cl_pool_free_count(&pool) == cl_pool_block_count(&pool));
+
+    a = cl_alloc(&allocator, 24u, 16u);
+    b = cl_alloc(&allocator, 8u, 8u);
+    CHECK(a != NULL);
+    CHECK(b != NULL);
+    CHECK(a != b);
+    CHECK(((uintptr_t)a & 15u) == 0u);
+    CHECK(((uintptr_t)b & 7u) == 0u);
+    CHECK(cl_pool_used_count(&pool) == 2u);
+
+    cl_free(&allocator, a, 24u, 16u);
+    CHECK(cl_pool_free_count(&pool) == cl_pool_block_count(&pool) - 1u);
+
+    c = cl_alloc(&allocator, 24u, 16u);
+    CHECK(c == a);
+
+    cl_free(&allocator, b, 8u, 8u);
+    cl_free(&allocator, c, 24u, 16u);
+    CHECK(cl_pool_free_count(&pool) == cl_pool_block_count(&pool));
+
+    return 0;
+}
+
+static int test_pool_allocator_exhaustion_and_reset(void)
+{
+    unsigned char storage[128];
+    cl_pool pool;
+    cl_allocator allocator;
+    void *blocks[8];
+    size_t count;
+    size_t i;
+
+    CHECK(cl_pool_init(&pool, storage, sizeof(storage), 16u, 8u));
+    allocator = cl_pool_allocator(&pool);
+    count = cl_pool_block_count(&pool);
+    CHECK(count > 0u);
+    CHECK(count <= 8u);
+
+    for (i = 0u; i < count; ++i) {
+        blocks[i] = cl_alloc(&allocator, 16u, 8u);
+        CHECK(blocks[i] != NULL);
+    }
+    CHECK(cl_alloc(&allocator, 16u, 8u) == NULL);
+    CHECK(cl_pool_free_count(&pool) == 0u);
+
+    cl_pool_reset(&pool);
+    CHECK(cl_pool_free_count(&pool) == count);
+    CHECK(cl_alloc(&allocator, 16u, 8u) == blocks[0]);
+
+    return 0;
+}
+
+static int test_pool_allocator_rejects_bad_requests(void)
+{
+    unsigned char storage[128];
+    unsigned char foreign[32];
+    cl_pool pool;
+    cl_allocator allocator;
+    void *ptr;
+    void *grown;
+
+    CHECK(!cl_pool_init(&pool, storage, sizeof(storage), 16u, 3u));
+    CHECK(cl_pool_init(&pool, storage, sizeof(storage), 16u, 8u));
+    allocator = cl_pool_allocator(&pool);
+
+    CHECK(cl_alloc(&allocator, 17u, 8u) == NULL);
+    CHECK(cl_alloc(&allocator, 8u, 16u) == NULL);
+
+    ptr = cl_alloc(&allocator, 16u, 8u);
+    CHECK(ptr != NULL);
+
+    grown = cl_resize(&allocator, ptr, 16u, 16u, 8u);
+    CHECK(grown == ptr);
+    CHECK(cl_resize(&allocator, ptr, 16u, 24u, 8u) == NULL);
+
+    cl_free(&allocator, foreign, 16u, 8u);
+    CHECK(cl_pool_used_count(&pool) == 1u);
+
+    cl_free(&allocator, (unsigned char *)ptr + 1u, 16u, 8u);
+    CHECK(cl_pool_used_count(&pool) == 1u);
+
+    cl_free(&allocator, ptr, 16u, 8u);
+    CHECK(cl_pool_used_count(&pool) == 0u);
+
+    return 0;
+}
+
 static int test_debug_allocator_counts(void)
 {
     cl_allocator system = cl_system_allocator();
@@ -265,6 +365,9 @@ int main(void)
     CHECK(test_system_allocator() == 0);
     CHECK(test_arena_allocator() == 0);
     CHECK(test_arena_resize() == 0);
+    CHECK(test_pool_allocator_reuses_blocks() == 0);
+    CHECK(test_pool_allocator_exhaustion_and_reset() == 0);
+    CHECK(test_pool_allocator_rejects_bad_requests() == 0);
     CHECK(test_debug_allocator_counts() == 0);
     CHECK(test_debug_allocator_detects_overrun() == 0);
     CHECK(test_debug_allocator_detects_mismatch() == 0);

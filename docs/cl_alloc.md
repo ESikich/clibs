@@ -8,7 +8,7 @@ Date modified: 2026-06-17.
 # cl_alloc
 
 `cl_alloc` is the first foundation library in this repository. It provides a
-small explicit allocator interface and three allocator implementations.
+small explicit allocator interface and four allocator implementations.
 
 ## Interface
 
@@ -34,8 +34,30 @@ detect mismatches.
 
 - `cl_system_allocator` wraps `malloc`, `realloc`, `free`, and `posix_memalign`.
 - `cl_arena_allocator` provides bump allocation over caller-owned memory.
+- `cl_pool_allocator` provides fixed-size block allocation over caller-owned
+  memory.
 - `cl_debug_allocator` wraps another allocator and adds guard bytes, mismatch
   detection, double-free detection for its own pointers, and live/peak counters.
+
+## Fixed-Size Pools
+
+Pools are initialized with caller-owned storage plus a block size and block
+alignment:
+
+```c
+unsigned char storage[4096];
+cl_pool pool;
+cl_allocator allocator;
+
+if (cl_pool_init(&pool, storage, sizeof(storage), 64, 16)) {
+    allocator = cl_pool_allocator(&pool);
+}
+```
+
+Each successful allocation consumes one block. Requests must be non-zero, no
+larger than the configured block size, and no more strictly aligned than the
+configured block alignment. `cl_pool_reset` rebuilds the free list and
+invalidates outstanding allocations.
 
 ## Safety Properties
 
@@ -43,6 +65,8 @@ detect mismatches.
 - Alignment must be a non-zero power of two.
 - Internal size additions and alignment rounding are checked for overflow.
 - Arena restore only accepts marks at or before the current arena offset.
+- Pool frees reject pointers outside the pool and pointers that do not point to
+  the start of a pool slot.
 - Debug allocations are quarantined until `cl_debug_allocator_release` so double
   frees can be detected without reading memory already returned to the backing
   allocator.

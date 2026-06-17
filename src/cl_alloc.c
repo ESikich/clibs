@@ -1,6 +1,6 @@
 /*
  * cl_alloc.c
- * Purpose: Allocator implementations for system, arena, and debug allocation.
+ * Purpose: Allocator implementations for system, arena, pool, and debug allocation.
  * POSIX target: POSIX.1-2008 compatible C99.
  * Date modified: 2026-06-17.
  */
@@ -378,6 +378,217 @@ cl_allocator cl_arena_allocator(cl_arena *arena)
     allocator.alloc = cl_arena_alloc;
     allocator.resize = cl_arena_resize;
     allocator.free = cl_arena_free;
+    return allocator;
+}
+
+static bool cl_pool_request_fits(const cl_pool *pool, size_t size, size_t align)
+{
+    return pool && size != 0u && size <= pool->block_size &&
+           cl_is_valid_align(align) && align <= pool->block_align;
+}
+
+bool cl_pool_init(
+    cl_pool *pool,
+    void *buffer,
+    size_t capacity,
+    size_t block_size,
+    size_t block_align)
+{
+    unsigned char *base;
+    uintptr_t raw;
+    uintptr_t aligned;
+    size_t padding;
+    size_t min_block_size;
+    size_t stride;
+    size_t count;
+    size_t i;
+
+    if (!pool) {
+        return false;
+    }
+
+    pool->base = NULL;
+    pool->capacity = 0u;
+    pool->block_size = 0u;
+    pool->block_align = 0u;
+    pool->block_stride = 0u;
+    pool->block_count = 0u;
+    pool->free_count = 0u;
+    pool->free_list = NULL;
+
+    if (!buffer || capacity == 0u || block_size == 0u ||
+        !cl_is_valid_align(block_align)) {
+        return false;
+    }
+
+    if (block_align < sizeof(void *)) {
+        block_align = sizeof(void *);
+    }
+
+    min_block_size = block_size;
+    if (min_block_size < sizeof(void *)) {
+        min_block_size = sizeof(void *);
+    }
+
+    if (!cl_align_up_size(min_block_size, block_align, &stride)) {
+        return false;
+    }
+
+    raw = (uintptr_t)buffer;
+    aligned = (raw + (uintptr_t)(block_align - 1u)) & ~(uintptr_t)(block_align - 1u);
+    if (aligned < raw) {
+        return false;
+    }
+
+    padding = (size_t)(aligned - raw);
+    if (padding > capacity) {
+        return false;
+    }
+
+    capacity -= padding;
+    count = capacity / stride;
+    if (count == 0u) {
+        return false;
+    }
+
+    base = (unsigned char *)aligned;
+    pool->base = base;
+    pool->capacity = count * stride;
+    pool->block_size = block_size;
+    pool->block_align = block_align;
+    pool->block_stride = stride;
+    pool->block_count = count;
+    pool->free_count = count;
+
+    /*
+     * Free slots store the next pointer in the slot itself. block_stride is
+     * rounded up so every slot preserves the requested block alignment.
+     */
+    for (i = 0u; i < count; ++i) {
+        unsigned char *slot = base + (i * stride);
+        void *next = i + 1u < count ? (void *)(slot + stride) : NULL;
+        memcpy(slot, &next, sizeof(next));
+    }
+    pool->free_list = base;
+
+    return true;
+}
+
+void cl_pool_reset(cl_pool *pool)
+{
+    size_t i;
+
+    if (!pool || !pool->base || pool->block_count == 0u) {
+        return;
+    }
+
+    for (i = 0u; i < pool->block_count; ++i) {
+        unsigned char *slot = pool->base + (i * pool->block_stride);
+        void *next = i + 1u < pool->block_count ?
+                         (void *)(slot + pool->block_stride) :
+                         NULL;
+        memcpy(slot, &next, sizeof(next));
+    }
+    pool->free_list = pool->base;
+    pool->free_count = pool->block_count;
+}
+
+size_t cl_pool_block_count(const cl_pool *pool)
+{
+    return pool ? pool->block_count : 0u;
+}
+
+size_t cl_pool_free_count(const cl_pool *pool)
+{
+    return pool ? pool->free_count : 0u;
+}
+
+size_t cl_pool_used_count(const cl_pool *pool)
+{
+    if (!pool || pool->free_count > pool->block_count) {
+        return 0u;
+    }
+
+    return pool->block_count - pool->free_count;
+}
+
+static bool cl_pool_owns_slot(const cl_pool *pool, const void *ptr)
+{
+    uintptr_t base;
+    uintptr_t slot;
+    size_t offset;
+
+    if (!pool || !pool->base || !ptr) {
+        return false;
+    }
+
+    base = (uintptr_t)pool->base;
+    slot = (uintptr_t)ptr;
+    if (pool->capacity > UINTPTR_MAX - base || slot < base ||
+        slot >= base + pool->capacity) {
+        return false;
+    }
+
+    offset = (size_t)(slot - base);
+    return (offset % pool->block_stride) == 0u;
+}
+
+static void *cl_pool_alloc(void *ctx, size_t size, size_t align)
+{
+    cl_pool *pool = (cl_pool *)ctx;
+    void *slot;
+
+    if (!cl_pool_request_fits(pool, size, align) || !pool->free_list) {
+        return NULL;
+    }
+
+    slot = pool->free_list;
+    memcpy(&pool->free_list, slot, sizeof(pool->free_list));
+    pool->free_count--;
+    return slot;
+}
+
+static void *cl_pool_resize(
+    void *ctx,
+    void *ptr,
+    size_t old_size,
+    size_t new_size,
+    size_t align)
+{
+    cl_pool *pool = (cl_pool *)ctx;
+
+    if (!ptr || !cl_pool_owns_slot(pool, ptr) ||
+        !cl_pool_request_fits(pool, old_size, align) ||
+        !cl_pool_request_fits(pool, new_size, align)) {
+        return NULL;
+    }
+
+    return ptr;
+}
+
+static void cl_pool_free(void *ctx, void *ptr, size_t size, size_t align)
+{
+    cl_pool *pool = (cl_pool *)ctx;
+
+    if (!cl_pool_request_fits(pool, size, align) || !cl_pool_owns_slot(pool, ptr)) {
+        return;
+    }
+
+    memcpy(ptr, &pool->free_list, sizeof(pool->free_list));
+    pool->free_list = ptr;
+    if (pool->free_count < pool->block_count) {
+        pool->free_count++;
+    }
+}
+
+cl_allocator cl_pool_allocator(cl_pool *pool)
+{
+    cl_allocator allocator;
+
+    allocator.ctx = pool;
+    allocator.alloc = cl_pool_alloc;
+    allocator.resize = cl_pool_resize;
+    allocator.free = cl_pool_free;
     return allocator;
 }
 

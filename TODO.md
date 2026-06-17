@@ -16,7 +16,7 @@ paths as well as fast paths.
 
 - [x] `allocator`: checked allocation interface, system allocator, arena allocator,
   debug allocator, tests, and benchmark harness.
-- [ ] `allocator`: fixed-size pool allocator.
+- [x] `allocator`: fixed-size pool allocator.
 - [ ] `allocator`: free-list allocator.
 - [ ] `allocator`: stronger benchmark interpretation and benchmark docs.
 - [ ] `test`: tiny unit test framework.
@@ -125,7 +125,7 @@ hash maps, parsers, file readers, JSON, HTTP, and most later libraries.
 
 The next allocator work should be:
 
-- [ ] fixed-size pool allocator
+- [x] fixed-size pool allocator
 - [ ] free-list allocator
 - [ ] debug checks for pool/free-list allocators
 - [ ] benchmarks that compare pool/free-list behavior against arena and system

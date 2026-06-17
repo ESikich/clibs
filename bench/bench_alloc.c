@@ -20,6 +20,7 @@
 #define CL_BENCH_RESIZE_ITERS 200000u
 #define CL_BENCH_DEBUG_ITERS 100000u
 #define CL_BENCH_ARENA_SIZE (64u * 1024u * 1024u)
+#define CL_BENCH_POOL_SIZE (1024u * 32u)
 #define CL_BENCH_BATCH_SIZE 1024u
 
 /*
@@ -203,6 +204,35 @@ static void cl_bench_arena_mark_restore(void)
                     cl_bench_now_seconds() - start);
 }
 
+static void cl_bench_pool_alloc_free(void)
+{
+    static unsigned char storage[CL_BENCH_POOL_SIZE];
+    cl_pool pool;
+    cl_allocator allocator;
+    double start;
+    size_t i;
+
+    if (!cl_pool_init(&pool, storage, sizeof(storage), 32u, 16u)) {
+        cl_bench_report("pool alloc/free 32B", 0u, 0.0);
+        return;
+    }
+    allocator = cl_pool_allocator(&pool);
+
+    /*
+     * Pool allocation models fixed-size object reuse: pop a free slot, then
+     * push it back without touching the general-purpose allocator.
+     */
+    start = cl_bench_now_seconds();
+    for (i = 0u; i < CL_BENCH_FAST_ITERS; ++i) {
+        void *ptr = cl_alloc(&allocator, 32u, 16u);
+        cl_bench_use_ptr(ptr);
+        cl_free(&allocator, ptr, 32u, 16u);
+    }
+
+    cl_bench_report("pool alloc/free 32B", CL_BENCH_FAST_ITERS,
+                    cl_bench_now_seconds() - start);
+}
+
 static void cl_bench_debug_alloc_free(void)
 {
     cl_allocator system = cl_system_allocator();
@@ -287,6 +317,7 @@ int main(void)
     cl_bench_system_resize_free();
     cl_bench_arena_batch_reset();
     cl_bench_arena_mark_restore();
+    cl_bench_pool_alloc_free();
     cl_bench_debug_alloc_free();
     cl_bench_debug_resize_free();
 

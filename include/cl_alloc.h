@@ -68,6 +68,33 @@ size_t cl_arena_used(const cl_arena *arena);
 size_t cl_arena_remaining(const cl_arena *arena);
 cl_allocator cl_arena_allocator(cl_arena *arena);
 
+typedef struct cl_pool {
+    unsigned char *base;
+    size_t capacity;
+    size_t block_size;
+    size_t block_align;
+    size_t block_stride;
+    size_t block_count;
+    size_t free_count;
+    void *free_list;
+} cl_pool;
+
+/*
+ * Pool memory is caller-owned. Each allocation returns one fixed-size block;
+ * free returns that block to the pool for reuse.
+ */
+bool cl_pool_init(
+    cl_pool *pool,
+    void *buffer,
+    size_t capacity,
+    size_t block_size,
+    size_t block_align);
+void cl_pool_reset(cl_pool *pool);
+size_t cl_pool_block_count(const cl_pool *pool);
+size_t cl_pool_free_count(const cl_pool *pool);
+size_t cl_pool_used_count(const cl_pool *pool);
+cl_allocator cl_pool_allocator(cl_pool *pool);
+
 typedef struct cl_debug_allocator {
     cl_allocator backing;
     void *blocks;
