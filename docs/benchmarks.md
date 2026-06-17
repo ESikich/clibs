@@ -29,6 +29,10 @@ The allocator benchmark compares:
 - free-list mixed-size batch allocation/free
 - debug allocator allocation and resize overhead
 
+Benchmark executables share the header-only `cl_bench` helper for monotonic
+timing, table output, ratio reporting, and optimization barriers. Its interface
+is documented in [cl_bench.md](cl_bench.md).
+
 Rows are reported as elapsed seconds and normalized nanoseconds per operation.
 The debug allocator rows include the final quarantine release time, because the
 debug allocator intentionally keeps backing allocations alive until

@@ -10,11 +10,10 @@
 #endif
 
 #include "cl_alloc.h"
+#include "cl_bench.h"
 
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 
 #define CL_BENCH_FAST_ITERS 1000000u
 #define CL_BENCH_RESIZE_ITERS 200000u
@@ -27,92 +26,11 @@
 
 static const size_t cl_bench_mixed_sizes[] = {16u, 32u, 64u, 96u};
 
-/*
- * The sink gives each allocated pointer an observable use. Without it, an
- * optimizing compiler may erase benchmark loops that have no visible result.
- */
-static volatile uintptr_t cl_bench_sink;
-
-typedef struct cl_bench_result {
-    const char *name;
-    size_t iterations;
-    double seconds;
-    double ns_per_op;
-} cl_bench_result;
-
-static double cl_bench_now_seconds(void)
-{
-    struct timespec ts;
-
-    /* CLOCK_MONOTONIC avoids wall-clock jumps while staying inside POSIX. */
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
-        return 0.0;
-    }
-
-    return (double)ts.tv_sec + ((double)ts.tv_nsec / 1000000000.0);
-}
-
-static void cl_bench_use_ptr(const void *ptr)
-{
-    cl_bench_sink ^= (uintptr_t)ptr;
-}
-
 static size_t cl_bench_mixed_size(size_t index)
 {
     size_t count = sizeof(cl_bench_mixed_sizes) / sizeof(cl_bench_mixed_sizes[0]);
 
     return cl_bench_mixed_sizes[index % count];
-}
-
-static cl_bench_result cl_bench_report(
-    const char *name,
-    size_t iterations,
-    double seconds)
-{
-    cl_bench_result result;
-    double ns_per_op = 0.0;
-
-    if (iterations != 0u && seconds > 0.0) {
-        ns_per_op = (seconds * 1000000000.0) / (double)iterations;
-    }
-
-    printf("%-42s %12zu %12.6f %12.2f\n", name, iterations, seconds, ns_per_op);
-
-    result.name = name;
-    result.iterations = iterations;
-    result.seconds = seconds;
-    result.ns_per_op = ns_per_op;
-    return result;
-}
-
-static void cl_bench_print_ratio(
-    const char *label,
-    const cl_bench_result *candidate,
-    const cl_bench_result *baseline)
-{
-    if (!candidate || !baseline || candidate->ns_per_op <= 0.0 ||
-        baseline->ns_per_op <= 0.0) {
-        printf("%-48s unavailable\n", label);
-        return;
-    }
-
-    printf("%-48s %9.2fx vs %s\n", label,
-           candidate->ns_per_op / baseline->ns_per_op, baseline->name);
-}
-
-static void cl_bench_print_speedup(
-    const char *label,
-    const cl_bench_result *candidate,
-    const cl_bench_result *baseline)
-{
-    if (!candidate || !baseline || candidate->ns_per_op <= 0.0 ||
-        baseline->ns_per_op <= 0.0) {
-        printf("%-48s unavailable\n", label);
-        return;
-    }
-
-    printf("%-48s %9.2fx throughput vs %s\n", label,
-           baseline->ns_per_op / candidate->ns_per_op, baseline->name);
 }
 
 static cl_bench_result cl_bench_raw_malloc_free(void)
@@ -538,16 +456,6 @@ static cl_bench_result cl_bench_debug_resize_free(void)
         cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_print_header(void)
-{
-    puts("cl_alloc benchmark");
-    puts("target: POSIX.1-2008 C99");
-    puts("note: debug rows include quarantine release time");
-    putchar('\n');
-    printf("%-42s %12s %12s %12s\n", "case", "iterations", "seconds", "ns/op");
-    printf("%-42s %12s %12s %12s\n", "----", "----------", "-------", "-----");
-}
-
 int main(void)
 {
     cl_bench_result raw_alloc;
@@ -566,7 +474,9 @@ int main(void)
     cl_bench_result debug_alloc;
     cl_bench_result debug_resize;
 
-    cl_bench_print_header();
+    cl_bench_print_table_header(
+        "cl_alloc benchmark",
+        "note: debug rows include quarantine release time");
 
     raw_alloc = cl_bench_raw_malloc_free();
     system_alloc = cl_bench_system_alloc_free();
@@ -609,6 +519,6 @@ int main(void)
                          &system_resize);
 
     putchar('\n');
-    printf("sink: %lu\n", (unsigned long)cl_bench_sink);
+    printf("sink: %lu\n", cl_bench_sink_value());
     return 0;
 }

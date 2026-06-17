@@ -20,7 +20,7 @@ paths as well as fast paths.
 - [x] `allocator`: free-list allocator.
 - [x] `allocator`: stronger benchmark interpretation and benchmark docs.
 - [x] `test`: tiny unit test framework.
-- [ ] `bench`: reusable microbenchmark harness.
+- [x] `bench`: reusable microbenchmark harness.
 
 ## Suggested First Batch
 

@@ -26,7 +26,8 @@ Pool and free-list allocators also expose counters for invalid frees,
 size/alignment mismatches, and double-free attempts.
 
 The test suite uses `cl_test`, a tiny header-only unit test helper for C99 test
-programs.
+programs. Benchmarks use `cl_bench`, a matching header-only helper for monotonic
+timing and compact benchmark reporting.
 
 Build and test:
 
