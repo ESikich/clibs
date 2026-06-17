@@ -20,7 +20,7 @@ $(ALLOC_OBJ): src/cl_alloc.c include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_alloc.c -o $@
 
-$(TEST_ALLOC): tests/test_alloc.c $(ALLOC_OBJ) include/cl_alloc.h
+$(TEST_ALLOC): tests/test_alloc.c $(ALLOC_OBJ) include/cl_alloc.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_alloc.c $(ALLOC_OBJ) -o $@
 

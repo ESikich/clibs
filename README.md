@@ -25,6 +25,9 @@ that portability envelope unless a later project decision changes it.
 Pool and free-list allocators also expose counters for invalid frees,
 size/alignment mismatches, and double-free attempts.
 
+The test suite uses `cl_test`, a tiny header-only unit test helper for C99 test
+programs.
+
 Build and test:
 
 ```sh
