@@ -14,6 +14,7 @@ working together in one small program:
 - `cl_array` stores parsed records in a typed dynamic array.
 - `cl_alloc` supplies a free-list allocator wrapped by the debug allocator, plus
   arena scratch storage and a fixed-size pool allocation.
+- `cl_hash` maps item names to parsed records without taking ownership of keys.
 - `cl_buffer` demonstrates a caller-owned ring buffer for bounded byte-stream
   handling.
 - `cl_libc` handles bounded byte copying, clearing, moving, and string

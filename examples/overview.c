@@ -8,6 +8,7 @@
 #include "cl_alloc.h"
 #include "cl_array.h"
 #include "cl_buffer.h"
+#include "cl_hash.h"
 #include "cl_libc.h"
 #include "cl_sv.h"
 
@@ -131,6 +132,26 @@ static uint64_t total_count(const item_array *items)
     return total;
 }
 
+static bool index_items(const item_array *items, cl_hash_table *index)
+{
+    size_t i;
+
+    if (!items || !index) {
+        return false;
+    }
+
+    for (i = 0u; i < items->size; ++i) {
+        if (!cl_hash_table_put_cstr(
+                index,
+                items->data[i].name,
+                (void *)&items->data[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 static void print_report(const item_array *items, cl_arena *scratch)
 {
     char *line;
@@ -222,7 +243,9 @@ int main(void)
     cl_arena scratch;
     cl_pool pool;
     cl_allocator pool_allocator;
+    cl_hash_table name_index;
     item_array items;
+    void *found = NULL;
 
     if (!cl_free_list_init(&free_list, list_storage, sizeof(list_storage))) {
         fputs("free-list init failed\n", stderr);
@@ -253,6 +276,19 @@ int main(void)
     print_report(&items, &scratch);
     printf("total      %" PRIu64 "\n", total_count(&items));
 
+    cl_hash_table_init(&name_index, &tracked);
+    if (!index_items(&items, &name_index)) {
+        fputs("index failed\n", stderr);
+        cl_hash_table_free(&name_index);
+        item_array_free(&items);
+        cl_debug_allocator_release(&debug);
+        return 1;
+    }
+    if (cl_hash_table_get_cstr(&name_index, "pears", &found)) {
+        const item *pears = (const item *)found;
+        printf("lookup     %s=%" PRIu64 "\n", pears->name, pears->count);
+    }
+
     if (!cl_pool_init(
             &pool,
             pool_storage,
@@ -260,6 +296,7 @@ int main(void)
             sizeof(event),
             CL_ALIGNOF_TYPE(event))) {
         fputs("pool init failed\n", stderr);
+        cl_hash_table_free(&name_index);
         item_array_free(&items);
         cl_debug_allocator_release(&debug);
         return 1;
@@ -268,6 +305,7 @@ int main(void)
     pool_allocator = cl_pool_allocator(&pool);
     if (items.size != 0u && !queue_event(&pool_allocator, &items.data[0])) {
         fputs("event allocation failed\n", stderr);
+        cl_hash_table_free(&name_index);
         item_array_free(&items);
         cl_debug_allocator_release(&debug);
         return 1;
@@ -289,6 +327,7 @@ int main(void)
         cl_free_list_used_bytes(&free_list),
         cl_free_list_free_bytes(&free_list));
 
+    cl_hash_table_free(&name_index);
     item_array_free(&items);
     printf("after free: debug live=%zu\n", debug.live_bytes);
     cl_debug_allocator_release(&debug);

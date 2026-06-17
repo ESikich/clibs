@@ -13,6 +13,7 @@ This directory holds project documentation that should move with the code.
 - [Allocator Library](cl_alloc.md)
 - [Array Library](cl_array.md)
 - [Buffer Library](cl_buffer.md)
+- [Hash Library](cl_hash.md)
 - [libc-mini Library](cl_libc.md)
 - [String-View Library](cl_sv.md)
 - [Test Helpers](cl_test.md)

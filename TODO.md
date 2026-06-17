@@ -35,7 +35,7 @@ paths as well as fast paths.
   helpers.
 - [x] `array`: typed or macro-based dynamic arrays.
 - [x] `buffer`: byte buffers, growable arrays, ring buffers.
-- [ ] `hash`: hash functions plus hash table.
+- [x] `hash`: hash functions plus hash table.
 - [ ] `file`: read/write whole file, streaming file helpers.
 - [ ] `path`: path normalization, joining, basename/dirname.
 - [ ] `utf8`: validation, iteration, encoding/decoding.
@@ -60,7 +60,7 @@ paths as well as fast paths.
 - [x] `array`: typed or macro-based dynamic arrays.
 - [ ] `list`: intrusive linked lists.
 - [ ] `queue`: FIFO queues, ring queues, priority queues.
-- [ ] `hash`: hash functions plus hash table.
+- [x] `hash`: hash functions plus hash table.
 - [ ] `map`: ordered map, maybe tree-based.
 - [ ] `set`: hash set / bitset-backed set.
 - [ ] `heap`: binary heap.
@@ -139,3 +139,4 @@ Foundation work completed:
 - [x] reusable microbenchmark helper
 - [x] macro-generated typed dynamic arrays with checked growth
 - [x] growable byte buffers and caller-owned ring buffers
+- [x] non-owning byte-key hash table with FNV-1a helpers
