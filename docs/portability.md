@@ -36,5 +36,6 @@ CPPFLAGS = -D_POSIX_C_SOURCE=200809L -Iinclude
 ## POSIX File I/O
 
 `cl_file` uses POSIX.1-2008 `open`, `fstat`, `read`, `write`, and `close` for
-whole-file helpers. File reads and writes retry interrupted transfer calls, and
-write permissions are created as `0666` filtered by the process umask.
+whole-file and streaming helpers. File reads and writes retry interrupted
+transfer calls, and write permissions are created as `0666` filtered by the
+process umask.

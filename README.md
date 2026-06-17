@@ -44,8 +44,9 @@ zero-initialized growth through `resize`.
 caller-owned ring buffers for bounded FIFO byte streams.
 
 `cl_file` provides POSIX whole-file read/write helpers that use `cl_allocator`
-for owned read buffers and preserve binary file sizes while adding a convenience
-NUL terminator after the read bytes.
+for owned read buffers, plus explicit streaming open/read/write/append helpers.
+Whole-file reads preserve binary file sizes while adding a convenience NUL
+terminator after the read bytes.
 
 `cl_hash` provides FNV-1a 64-bit hashing and an allocator-backed hash table for
 non-owning byte keys with caller-owned pointer values.
