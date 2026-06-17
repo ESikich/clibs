@@ -15,6 +15,7 @@ This directory holds project documentation that should move with the code.
 - [ASCII Library](cl_ascii.md)
 - [Bitset Library](cl_bitset.md)
 - [Buffer Library](cl_buffer.md)
+- [Endian Library](cl_endian.md)
 - [File Library](cl_file.md)
 - [Hash Library](cl_hash.md)
 - [libc-mini Library](cl_libc.md)

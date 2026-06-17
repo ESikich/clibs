@@ -18,6 +18,8 @@ working together in one small program:
 - `cl_bitset` marks selected parsed records with fixed caller-owned storage.
 - `cl_buffer` demonstrates a caller-owned ring buffer for bounded byte-stream
   handling.
+- `cl_endian` stores and reloads the total count through an explicit big-endian
+  byte buffer.
 - `cl_file` writes the example input to a temporary file and reads it back into
   allocator-owned storage before parsing.
 - `cl_path` joins and inspects a lexical POSIX path without filesystem lookup.

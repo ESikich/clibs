@@ -15,6 +15,7 @@ ARRAY_OBJ = $(BUILD_DIR)/cl_array.o
 ASCII_OBJ = $(BUILD_DIR)/cl_ascii.o
 BITSET_OBJ = $(BUILD_DIR)/cl_bitset.o
 BUFFER_OBJ = $(BUILD_DIR)/cl_buffer.o
+ENDIAN_OBJ = $(BUILD_DIR)/cl_endian.o
 FILE_OBJ = $(BUILD_DIR)/cl_file.o
 HASH_OBJ = $(BUILD_DIR)/cl_hash.o
 LIBC_OBJ = $(BUILD_DIR)/cl_libc.o
@@ -25,6 +26,7 @@ EXAMPLE_OVERVIEW = $(BUILD_DIR)/overview
 TEST_ARRAY = $(BUILD_DIR)/test_array
 TEST_ALLOC = $(BUILD_DIR)/test_alloc
 TEST_BUFFER = $(BUILD_DIR)/test_buffer
+TEST_ENDIAN = $(BUILD_DIR)/test_endian
 TEST_ASCII = $(BUILD_DIR)/test_ascii
 TEST_BITSET = $(BUILD_DIR)/test_bitset
 TEST_FILE = $(BUILD_DIR)/test_file
@@ -35,7 +37,7 @@ TEST_SV = $(BUILD_DIR)/test_sv
 TEST_UTF8 = $(BUILD_DIR)/test_utf8
 BENCH_ALLOC = $(BUILD_DIR)/bench_alloc
 
-all: $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_PATH) $(TEST_SV) $(TEST_UTF8) $(BENCH_ALLOC) $(EXAMPLE_OVERVIEW)
+all: $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_PATH) $(TEST_SV) $(TEST_UTF8) $(BENCH_ALLOC) $(EXAMPLE_OVERVIEW)
 
 $(ALLOC_OBJ): src/cl_alloc.c include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
@@ -56,6 +58,10 @@ $(BITSET_OBJ): src/cl_bitset.c include/cl_bitset.h include/cl_alloc.h
 $(BUFFER_OBJ): src/cl_buffer.c include/cl_buffer.h include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_buffer.c -o $@
+
+$(ENDIAN_OBJ): src/cl_endian.c include/cl_endian.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_endian.c -o $@
 
 $(FILE_OBJ): src/cl_file.c include/cl_file.h include/cl_buffer.h include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
@@ -101,6 +107,10 @@ $(TEST_BUFFER): tests/test_buffer.c $(BUFFER_OBJ) $(ALLOC_OBJ) include/cl_buffer
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_buffer.c $(BUFFER_OBJ) $(ALLOC_OBJ) -o $@
 
+$(TEST_ENDIAN): tests/test_endian.c $(ENDIAN_OBJ) include/cl_endian.h include/cl_test.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_endian.c $(ENDIAN_OBJ) -o $@
+
 $(TEST_FILE): tests/test_file.c $(FILE_OBJ) $(BUFFER_OBJ) $(ALLOC_OBJ) include/cl_file.h include/cl_buffer.h include/cl_alloc.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_file.c $(FILE_OBJ) $(BUFFER_OBJ) $(ALLOC_OBJ) -o $@
@@ -129,16 +139,17 @@ $(BENCH_ALLOC): bench/bench_alloc.c $(ALLOC_OBJ) include/cl_alloc.h include/cl_b
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) bench/bench_alloc.c $(ALLOC_OBJ) -o $@
 
-$(EXAMPLE_OVERVIEW): examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(PATH_OBJ) $(SV_OBJ) $(UTF8_OBJ) include/cl_alloc.h include/cl_array.h include/cl_ascii.h include/cl_bitset.h include/cl_buffer.h include/cl_file.h include/cl_hash.h include/cl_libc.h include/cl_path.h include/cl_sv.h include/cl_utf8.h
+$(EXAMPLE_OVERVIEW): examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(PATH_OBJ) $(SV_OBJ) $(UTF8_OBJ) include/cl_alloc.h include/cl_array.h include/cl_ascii.h include/cl_bitset.h include/cl_buffer.h include/cl_endian.h include/cl_file.h include/cl_hash.h include/cl_libc.h include/cl_path.h include/cl_sv.h include/cl_utf8.h
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(PATH_OBJ) $(SV_OBJ) $(UTF8_OBJ) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(PATH_OBJ) $(SV_OBJ) $(UTF8_OBJ) -o $@
 
-test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_PATH) $(TEST_SV) $(TEST_UTF8)
+test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_PATH) $(TEST_SV) $(TEST_UTF8)
 	$(TEST_ALLOC)
 	$(TEST_ARRAY)
 	$(TEST_ASCII)
 	$(TEST_BITSET)
 	$(TEST_BUFFER)
+	$(TEST_ENDIAN)
 	$(TEST_FILE)
 	$(TEST_HASH)
 	$(TEST_LIBC)

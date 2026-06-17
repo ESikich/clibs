@@ -57,3 +57,10 @@ values and bytes above `0x7f`.
 `cl_bitset` uses portable `size_t` word operations and explicit loops for
 population counts and bit scans. It intentionally avoids compiler-specific
 popcount and bit-scan intrinsics so behavior stays within the C99 baseline.
+
+## Byte Order
+
+`cl_endian` uses fixed-width unsigned integer operations and byte-wise loads and
+stores for explicit little-endian and big-endian data. Native-endian unaligned
+loads and stores use `memcpy` rather than pointer casts, and the implementation
+does not depend on platform endian macros or compiler byte-swap intrinsics.

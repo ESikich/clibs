@@ -10,6 +10,7 @@
 #include "cl_ascii.h"
 #include "cl_bitset.h"
 #include "cl_buffer.h"
+#include "cl_endian.h"
 #include "cl_file.h"
 #include "cl_hash.h"
 #include "cl_libc.h"
@@ -269,6 +270,16 @@ static void print_large_item_count(const item_array *items)
     printf("large item slots: %zu\n", cl_bitset_count(&large_items));
 }
 
+static void print_total_as_be64(uint64_t total)
+{
+    unsigned char encoded[8];
+
+    cl_endian_store_be64(encoded, total);
+    printf(
+        "total be64 %016" PRIx64 "\n",
+        cl_endian_load_be64(encoded));
+}
+
 int main(void)
 {
     static unsigned char list_storage[4096];
@@ -351,6 +362,7 @@ int main(void)
     cl_arena_init(&scratch, arena_storage, sizeof(arena_storage));
     print_report(&items, &scratch);
     printf("total      %" PRIu64 "\n", total_count(&items));
+    print_total_as_be64(total_count(&items));
     print_large_item_count(&items);
 
     cl_hash_table_init(&name_index, &tracked);

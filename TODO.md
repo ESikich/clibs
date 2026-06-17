@@ -53,7 +53,7 @@ paths as well as fast paths.
   helpers.
 - [x] `buffer`: byte buffers, growable arrays, ring buffers.
 - [x] `bitset`: fixed and dynamic bitsets, bit operations, bit scans.
-- [ ] `endian`: byte-order conversion, unaligned loads/stores.
+- [x] `endian`: byte-order conversion, unaligned loads/stores.
 - [ ] `atomics`: thin wrappers around atomics or compiler intrinsics.
 - [ ] `time`: monotonic clock, duration math, timers.
 
@@ -149,3 +149,4 @@ Foundation work completed:
 - [x] lexical POSIX path normalization, joining, basename, and dirname helpers
 - [x] UTF-8 validation, iteration, encoding, and decoding helpers
 - [x] locale-free ASCII classification, case conversion, and digit value helpers
+- [x] byte-order conversion and unaligned fixed-width integer load/store helpers
