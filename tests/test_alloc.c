@@ -117,6 +117,7 @@ static int test_arena_resize(void)
         ptr[i] = (unsigned char)(i + 1u);
     }
 
+    /* The most recent arena allocation should grow in place when capacity allows. */
     grown = cl_resize(&allocator, ptr, 16u, 32u, 8u);
     CHECK(grown == ptr);
     for (i = 0u; i < 16u; ++i) {
@@ -125,6 +126,7 @@ static int test_arena_resize(void)
 
     blocker = cl_alloc(&allocator, 16u, 8u);
     CHECK(blocker != NULL);
+    /* Older arena allocations cannot grow in place once another block follows them. */
     moved = cl_resize(&allocator, grown, 32u, 48u, 8u);
     CHECK(moved != NULL);
     CHECK(moved != grown);
@@ -174,6 +176,7 @@ static int test_debug_allocator_detects_overrun(void)
 
     ptr = cl_alloc(&allocator, 8u, 8u);
     CHECK(ptr != NULL);
+    /* One byte past the user allocation should trip the right guard. */
     ptr[8] = 0xFFu;
     cl_free(&allocator, ptr, 8u, 8u);
     CHECK(debug.corruption_count == 1u);
@@ -195,6 +198,7 @@ static int test_debug_allocator_detects_mismatch(void)
 
     ptr = cl_alloc(&allocator, 24u, 8u);
     CHECK(ptr != NULL);
+    /* The debug wrapper treats size/alignment mismatches as ownership bugs. */
     cl_free(&allocator, ptr, 16u, 8u);
     CHECK(debug.mismatch_count == 1u);
 

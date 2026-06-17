@@ -26,7 +26,7 @@ Build and test:
 make test
 ```
 
-Run the simple allocation benchmark:
+Run the comparative allocation benchmark:
 
 ```sh
 make bench

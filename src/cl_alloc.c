@@ -33,6 +33,10 @@ typedef struct cl_debug_header {
 
 static size_t cl_max_align(void)
 {
+    /*
+     * C99 does not have max_align_t. This union gives us a conservative
+     * alignment suitable for ordinary malloc-backed objects on our target.
+     */
     typedef union cl_align_probe {
         long double ld;
         long long ll;
@@ -62,6 +66,7 @@ bool cl_align_up_size(size_t value, size_t align, size_t *out)
     }
 
     mask = align - 1u;
+    /* Guard the addition before using the usual power-of-two rounding trick. */
     if (value > SIZE_MAX - mask) {
         return false;
     }
@@ -124,6 +129,10 @@ void *cl_resize(
         return allocator->resize(allocator->ctx, ptr, old_size, new_size, align);
     }
 
+    /*
+     * Fallback resize preserves realloc-style failure behavior: the original
+     * block remains owned by the caller if allocating the replacement fails.
+     */
     {
         void *next = cl_alloc(allocator, new_size, align);
         if (!next) {
@@ -158,6 +167,10 @@ static void *cl_system_alloc(void *ctx, size_t size, size_t align)
 
     normalized_align = cl_normalize_align(align);
 
+    /*
+     * malloc already satisfies fundamental alignment. Use posix_memalign only
+     * for over-aligned requests so the common path stays as small as possible.
+     */
     if (normalized_align <= cl_max_align()) {
         return malloc(size);
     }
@@ -281,6 +294,10 @@ static void *cl_arena_alloc(void *ctx, size_t size, size_t align)
     }
 
     current = base + arena->offset;
+    /*
+     * The arena accepts any power-of-two alignment. Calculate padding from the
+     * actual address, then account for it in offset-space with overflow checks.
+     */
     aligned = (current + (uintptr_t)(align - 1u)) & ~(uintptr_t)(align - 1u);
     if (aligned < current) {
         return NULL;
@@ -410,6 +427,13 @@ static void *cl_debug_alloc(void *ctx, size_t size, size_t align)
         user_align = cl_max_align();
     }
 
+    /*
+     * Layout:
+     * raw allocation | optional padding | header | left guard | user | right guard
+     *
+     * The header sits immediately before the left guard so we can recover it
+     * from a user pointer while still returning the requested user alignment.
+     */
     raw_align = cl_max_align();
     raw_size = sizeof(cl_debug_header);
     if (!cl_add_size(raw_size, CL_DEBUG_GUARD_SIZE, &raw_size) ||
@@ -470,6 +494,7 @@ static void cl_debug_free(void *ctx, void *ptr, size_t size, size_t align)
     header = cl_debug_header_from_user(ptr);
     user = (unsigned char *)ptr;
 
+    /* A freed debug block remains quarantined, so its magic is still readable. */
     if (header->magic != CL_DEBUG_MAGIC) {
         if (header->magic == CL_DEBUG_FREED) {
             debug->double_free_count++;
@@ -535,6 +560,10 @@ static void *cl_debug_resize(
         return NULL;
     }
 
+    /*
+     * Allocate-copy-free keeps debug metadata simple and makes resize validate
+     * the old block through the same guard and mismatch checks as cl_free.
+     */
     next = cl_debug_alloc(ctx, new_size, align);
     if (!next) {
         return NULL;

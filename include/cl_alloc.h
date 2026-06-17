@@ -17,6 +17,11 @@ extern "C" {
 
 typedef struct cl_allocator cl_allocator;
 
+/*
+ * Allocator functions receive an opaque context plus explicit size/alignment.
+ * Passing the size back on resize/free is intentional: debug allocators can
+ * validate ownership contracts without storing hidden global state.
+ */
 typedef void *(*cl_alloc_fn)(void *ctx, size_t size, size_t align);
 typedef void *(*cl_resize_fn)(
     void *ctx,
@@ -54,6 +59,7 @@ typedef struct cl_arena {
     size_t offset;
 } cl_arena;
 
+/* Arena memory is caller-owned; reset/restore invalidates later allocations. */
 void cl_arena_init(cl_arena *arena, void *buffer, size_t capacity);
 void cl_arena_reset(cl_arena *arena);
 size_t cl_arena_mark(const cl_arena *arena);
@@ -75,6 +81,10 @@ typedef struct cl_debug_allocator {
     size_t double_free_count;
 } cl_debug_allocator;
 
+/*
+ * Debug allocators quarantine backing allocations until release. This costs
+ * memory, but preserves metadata long enough to catch double frees safely.
+ */
 void cl_debug_allocator_init(cl_debug_allocator *debug, cl_allocator backing);
 cl_allocator cl_debug_allocator_view(cl_debug_allocator *debug);
 void cl_debug_allocator_release(cl_debug_allocator *debug);

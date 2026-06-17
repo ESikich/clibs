@@ -9,6 +9,12 @@ Date modified: 2026-06-17.
 
 The project baseline is POSIX.1-2008 compatible C99.
 
+## ANSI C Note
+
+"ANSI C" commonly refers to the original C89/C90 standard. This project targets
+ISO C99 instead. Code should stay close to portable C, but strict ANSI C/C89
+compatibility is not a project goal.
+
 ## Build Defaults
 
 The default `Makefile` uses:

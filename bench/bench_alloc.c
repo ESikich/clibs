@@ -22,12 +22,17 @@
 #define CL_BENCH_ARENA_SIZE (64u * 1024u * 1024u)
 #define CL_BENCH_BATCH_SIZE 1024u
 
+/*
+ * The sink gives each allocated pointer an observable use. Without it, an
+ * optimizing compiler may erase benchmark loops that have no visible result.
+ */
 static volatile uintptr_t cl_bench_sink;
 
 static double cl_bench_now_seconds(void)
 {
     struct timespec ts;
 
+    /* CLOCK_MONOTONIC avoids wall-clock jumps while staying inside POSIX. */
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
         return 0.0;
     }
@@ -154,6 +159,10 @@ static void cl_bench_arena_batch_reset(void)
     cl_arena_init(&arena, storage, sizeof(storage));
     allocator = cl_arena_allocator(&arena);
 
+    /*
+     * This models request/frame-style allocation: many short-lived allocations
+     * are discarded together instead of freed one by one.
+     */
     start = cl_bench_now_seconds();
     for (i = 0u; i < CL_BENCH_FAST_ITERS; ++i) {
         void *ptr = cl_alloc(&allocator, 32u, 16u);
@@ -178,6 +187,10 @@ static void cl_bench_arena_mark_restore(void)
     cl_arena_init(&arena, storage, sizeof(storage));
     allocator = cl_arena_allocator(&arena);
 
+    /*
+     * Mark/restore measures temporary allocation scopes, where each allocation
+     * is undone immediately after the short-lived work finishes.
+     */
     start = cl_bench_now_seconds();
     for (i = 0u; i < CL_BENCH_FAST_ITERS; ++i) {
         size_t mark = cl_arena_mark(&arena);
@@ -201,6 +214,11 @@ static void cl_bench_debug_alloc_free(void)
     cl_debug_allocator_init(&debug, system);
     allocator = cl_debug_allocator_view(&debug);
 
+    /*
+     * Debug timings intentionally include release. The allocator quarantines
+     * freed blocks to catch double frees, and release is when backing memory is
+     * actually returned.
+     */
     start = cl_bench_now_seconds();
     for (i = 0u; i < CL_BENCH_DEBUG_ITERS; ++i) {
         void *ptr = cl_alloc(&allocator, 32u, 16u);
