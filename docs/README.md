@@ -11,6 +11,7 @@ This directory holds project documentation that should move with the code.
 
 - [Project TODO](../TODO.md)
 - [Allocator Library](cl_alloc.md)
+- [libc-mini Library](cl_libc.md)
 - [Test Helpers](cl_test.md)
 - [Benchmark Helpers](cl_bench.md)
 - [Benchmarks](benchmarks.md)

@@ -19,12 +19,14 @@ paths as well as fast paths.
 - [x] `allocator`: fixed-size pool allocator.
 - [x] `allocator`: free-list allocator.
 - [x] `allocator`: stronger benchmark interpretation and benchmark docs.
+- [x] `libc-mini`: tiny subset of libc: `memcpy`, `memmove`, `memset`,
+  `memcmp`, `strlen`, `strcmp`, `strchr`, etc.
 - [x] `test`: tiny unit test framework.
 - [x] `bench`: reusable microbenchmark harness.
 
 ## Suggested First Batch
 
-- [ ] `libc-mini`: tiny subset of libc: `memcpy`, `memmove`, `memset`, `memcmp`,
+- [x] `libc-mini`: tiny subset of libc: `memcpy`, `memmove`, `memset`, `memcmp`,
   `strlen`, `strcmp`, `strchr`, etc.
 - [x] `allocator`: arena allocator, bump allocator, checked interface, debug
   allocator.
@@ -40,7 +42,7 @@ paths as well as fast paths.
 
 ## Core Runtime
 
-- [ ] `libc-mini`: tiny subset of libc: `memcpy`, `memmove`, `memset`, `memcmp`,
+- [x] `libc-mini`: tiny subset of libc: `memcpy`, `memmove`, `memset`, `memcmp`,
   `strlen`, `strcmp`, `strchr`, etc.
 - [x] `allocator`: arena allocator, bump allocator, free-list allocator, pool
   allocator.

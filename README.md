@@ -12,7 +12,7 @@ Low-level C libraries with memory safety and performance as the first constraint
 This project targets POSIX.1-2008 compatible systems and C99. Keep new code inside
 that portability envelope unless a later project decision changes it.
 
-## Current library
+## Current libraries
 
 `cl_alloc` provides a small explicit allocator interface:
 
@@ -28,6 +28,10 @@ size/alignment mismatches, and double-free attempts.
 The test suite uses `cl_test`, a tiny header-only unit test helper for C99 test
 programs. Benchmarks use `cl_bench`, a matching header-only helper for monotonic
 timing and compact benchmark reporting.
+
+`cl_libc` provides a tiny prefixed subset of libc-style memory and string
+primitives: `cl_memset`, `cl_memcpy`, `cl_memmove`, `cl_memcmp`, `cl_strlen`,
+`cl_strcmp`, and `cl_strchr`.
 
 Build and test:
 
