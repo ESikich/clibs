@@ -30,7 +30,7 @@ paths as well as fast paths.
   `strlen`, `strcmp`, `strchr`, etc.
 - [x] `allocator`: arena allocator, bump allocator, checked interface, debug
   allocator.
-- [ ] `string-view`: non-owning string slices, trimming, splitting, parsing
+- [x] `string-view`: non-owning string slices, trimming, splitting, parsing
   helpers.
 - [ ] `array`: typed or macro-based dynamic arrays.
 - [ ] `buffer`: byte buffers, growable arrays, ring buffers.
@@ -46,7 +46,7 @@ paths as well as fast paths.
   `strlen`, `strcmp`, `strchr`, etc.
 - [x] `allocator`: arena allocator, bump allocator, free-list allocator, pool
   allocator.
-- [ ] `string-view`: non-owning string slices, trimming, splitting, parsing
+- [x] `string-view`: non-owning string slices, trimming, splitting, parsing
   helpers.
 - [ ] `buffer`: byte buffers, growable arrays, ring buffers.
 - [ ] `bitset`: fixed and dynamic bitsets, bit operations, bit scans.
@@ -127,6 +127,8 @@ hash maps, parsers, file readers, JSON, HTTP, and most later libraries.
 
 Foundation work completed:
 
+- [x] non-owning string views with trimming, splitting, comparisons, and checked
+  integer parsing
 - [x] fixed-size pool allocator
 - [x] free-list allocator
 - [x] debug checks for pool/free-list allocators

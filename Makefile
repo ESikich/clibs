@@ -12,11 +12,13 @@ BUILD_DIR = build
 
 ALLOC_OBJ = $(BUILD_DIR)/cl_alloc.o
 LIBC_OBJ = $(BUILD_DIR)/cl_libc.o
+SV_OBJ = $(BUILD_DIR)/cl_sv.o
 TEST_ALLOC = $(BUILD_DIR)/test_alloc
 TEST_LIBC = $(BUILD_DIR)/test_libc
+TEST_SV = $(BUILD_DIR)/test_sv
 BENCH_ALLOC = $(BUILD_DIR)/bench_alloc
 
-all: $(TEST_ALLOC) $(TEST_LIBC) $(BENCH_ALLOC)
+all: $(TEST_ALLOC) $(TEST_LIBC) $(TEST_SV) $(BENCH_ALLOC)
 
 $(ALLOC_OBJ): src/cl_alloc.c include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
@@ -26,6 +28,10 @@ $(LIBC_OBJ): src/cl_libc.c include/cl_libc.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_libc.c -o $@
 
+$(SV_OBJ): src/cl_sv.c include/cl_sv.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_sv.c -o $@
+
 $(TEST_ALLOC): tests/test_alloc.c $(ALLOC_OBJ) include/cl_alloc.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_alloc.c $(ALLOC_OBJ) -o $@
@@ -34,13 +40,18 @@ $(TEST_LIBC): tests/test_libc.c $(LIBC_OBJ) include/cl_libc.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_libc.c $(LIBC_OBJ) -o $@
 
+$(TEST_SV): tests/test_sv.c $(SV_OBJ) include/cl_sv.h include/cl_test.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_sv.c $(SV_OBJ) -o $@
+
 $(BENCH_ALLOC): bench/bench_alloc.c $(ALLOC_OBJ) include/cl_alloc.h include/cl_bench.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) bench/bench_alloc.c $(ALLOC_OBJ) -o $@
 
-test: FORCE $(TEST_ALLOC) $(TEST_LIBC)
+test: FORCE $(TEST_ALLOC) $(TEST_LIBC) $(TEST_SV)
 	$(TEST_ALLOC)
 	$(TEST_LIBC)
+	$(TEST_SV)
 
 bench: FORCE $(BENCH_ALLOC)
 	$(BENCH_ALLOC)

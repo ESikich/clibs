@@ -33,6 +33,9 @@ timing and compact benchmark reporting.
 primitives: `cl_memset`, `cl_memcpy`, `cl_memmove`, `cl_memcmp`, `cl_strlen`,
 `cl_strcmp`, and `cl_strchr`.
 
+`cl_sv` provides non-owning byte string views with trimming, comparison,
+delimiter splitting, and checked decimal integer parsing.
+
 Build and test:
 
 ```sh
