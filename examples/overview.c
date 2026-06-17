@@ -8,6 +8,7 @@
 #include "cl_alloc.h"
 #include "cl_array.h"
 #include "cl_buffer.h"
+#include "cl_file.h"
 #include "cl_hash.h"
 #include "cl_libc.h"
 #include "cl_sv.h"
@@ -15,6 +16,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <unistd.h>
 
 typedef struct item {
     char name[16];
@@ -152,6 +154,15 @@ static bool index_items(const item_array *items, cl_hash_table *index)
     return true;
 }
 
+static void make_example_path(char *path, size_t path_size)
+{
+    if (!path || path_size == 0u) {
+        return;
+    }
+
+    (void)snprintf(path, path_size, "/tmp/clibs_overview_%ld.txt", (long)getpid());
+}
+
 static void print_report(const item_array *items, cl_arena *scratch)
 {
     char *line;
@@ -244,7 +255,9 @@ int main(void)
     cl_pool pool;
     cl_allocator pool_allocator;
     cl_hash_table name_index;
+    cl_file_data input_file;
     item_array items;
+    char input_path[128];
     void *found = NULL;
 
     if (!cl_free_list_init(&free_list, list_storage, sizeof(list_storage))) {
@@ -257,12 +270,35 @@ int main(void)
     tracked = cl_debug_allocator_view(&debug);
     item_array_init(&items, &tracked);
 
-    if (!parse_items(cl_sv_from_cstr(input), &items)) {
-        fputs("parse failed\n", stderr);
+    make_example_path(input_path, sizeof(input_path));
+    (void)unlink(input_path);
+    if (!cl_file_write_all(input_path, input, cl_strlen(input))) {
+        fputs("input write failed\n", stderr);
         item_array_free(&items);
         cl_debug_allocator_release(&debug);
         return 1;
     }
+    if (!cl_file_read_all(input_path, &tracked, &input_file)) {
+        fputs("input read failed\n", stderr);
+        (void)unlink(input_path);
+        item_array_free(&items);
+        cl_debug_allocator_release(&debug);
+        return 1;
+    }
+
+    printf("input file: %zu bytes\n", input_file.size);
+    if (!parse_items(
+            cl_sv_from_parts((const char *)input_file.data, input_file.size),
+            &items)) {
+        fputs("parse failed\n", stderr);
+        cl_file_data_free(&input_file);
+        (void)unlink(input_path);
+        item_array_free(&items);
+        cl_debug_allocator_release(&debug);
+        return 1;
+    }
+    cl_file_data_free(&input_file);
+    (void)unlink(input_path);
 
     compact_items(&items);
     if (items.size >= 2u &&

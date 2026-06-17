@@ -32,3 +32,9 @@ CPPFLAGS = -D_POSIX_C_SOURCE=200809L -Iinclude
 - Document any platform-specific API before adding it.
 - Provide a POSIX fallback for non-POSIX code before using it in a core library.
 - Keep examples and tests within the same portability target as the library code.
+
+## POSIX File I/O
+
+`cl_file` uses POSIX.1-2008 `open`, `fstat`, `read`, `write`, and `close` for
+whole-file helpers. File reads and writes retry interrupted transfer calls, and
+write permissions are created as `0666` filtered by the process umask.

@@ -36,7 +36,8 @@ paths as well as fast paths.
 - [x] `array`: typed or macro-based dynamic arrays.
 - [x] `buffer`: byte buffers, growable arrays, ring buffers.
 - [x] `hash`: hash functions plus hash table.
-- [ ] `file`: read/write whole file, streaming file helpers.
+- [x] `file`: read/write whole file.
+- [ ] `file`: streaming file helpers.
 - [ ] `path`: path normalization, joining, basename/dirname.
 - [ ] `utf8`: validation, iteration, encoding/decoding.
 - [x] `test`: tiny unit test framework.
@@ -70,7 +71,8 @@ paths as well as fast paths.
 ## OS / Platform
 
 - [ ] `sys`: portable wrappers for files, paths, environment, processes.
-- [ ] `file`: read/write whole file, streaming file helpers.
+- [x] `file`: read/write whole file.
+- [ ] `file`: streaming file helpers.
 - [ ] `path`: path normalization, joining, basename/dirname.
 - [ ] `mmap`: memory-mapped file wrapper.
 - [ ] `thread`: thread creation, mutexes, condvars, thread-local storage.
@@ -140,3 +142,4 @@ Foundation work completed:
 - [x] macro-generated typed dynamic arrays with checked growth
 - [x] growable byte buffers and caller-owned ring buffers
 - [x] non-owning byte-key hash table with FNV-1a helpers
+- [x] POSIX whole-file read/write helpers

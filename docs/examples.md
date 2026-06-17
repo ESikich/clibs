@@ -17,6 +17,8 @@ working together in one small program:
 - `cl_hash` maps item names to parsed records without taking ownership of keys.
 - `cl_buffer` demonstrates a caller-owned ring buffer for bounded byte-stream
   handling.
+- `cl_file` writes the example input to a temporary file and reads it back into
+  allocator-owned storage before parsing.
 - `cl_libc` handles bounded byte copying, clearing, moving, and string
   comparison.
 
