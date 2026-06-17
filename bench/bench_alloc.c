@@ -20,15 +20,25 @@
 #define CL_BENCH_RESIZE_ITERS 200000u
 #define CL_BENCH_DEBUG_ITERS 100000u
 #define CL_BENCH_ARENA_SIZE (64u * 1024u * 1024u)
-#define CL_BENCH_POOL_SIZE (1024u * 32u)
+#define CL_BENCH_POOL_SIZE (1024u * 64u)
 #define CL_BENCH_FREE_LIST_SIZE (1024u * 128u)
 #define CL_BENCH_BATCH_SIZE 1024u
+#define CL_BENCH_BATCH_ROUNDS 1000u
+
+static const size_t cl_bench_mixed_sizes[] = {16u, 32u, 64u, 96u};
 
 /*
  * The sink gives each allocated pointer an observable use. Without it, an
  * optimizing compiler may erase benchmark loops that have no visible result.
  */
 static volatile uintptr_t cl_bench_sink;
+
+typedef struct cl_bench_result {
+    const char *name;
+    size_t iterations;
+    double seconds;
+    double ns_per_op;
+} cl_bench_result;
 
 static double cl_bench_now_seconds(void)
 {
@@ -47,8 +57,19 @@ static void cl_bench_use_ptr(const void *ptr)
     cl_bench_sink ^= (uintptr_t)ptr;
 }
 
-static void cl_bench_report(const char *name, size_t iterations, double seconds)
+static size_t cl_bench_mixed_size(size_t index)
 {
+    size_t count = sizeof(cl_bench_mixed_sizes) / sizeof(cl_bench_mixed_sizes[0]);
+
+    return cl_bench_mixed_sizes[index % count];
+}
+
+static cl_bench_result cl_bench_report(
+    const char *name,
+    size_t iterations,
+    double seconds)
+{
+    cl_bench_result result;
     double ns_per_op = 0.0;
 
     if (iterations != 0u && seconds > 0.0) {
@@ -56,9 +77,45 @@ static void cl_bench_report(const char *name, size_t iterations, double seconds)
     }
 
     printf("%-42s %12zu %12.6f %12.2f\n", name, iterations, seconds, ns_per_op);
+
+    result.name = name;
+    result.iterations = iterations;
+    result.seconds = seconds;
+    result.ns_per_op = ns_per_op;
+    return result;
 }
 
-static void cl_bench_raw_malloc_free(void)
+static void cl_bench_print_ratio(
+    const char *label,
+    const cl_bench_result *candidate,
+    const cl_bench_result *baseline)
+{
+    if (!candidate || !baseline || candidate->ns_per_op <= 0.0 ||
+        baseline->ns_per_op <= 0.0) {
+        printf("%-48s unavailable\n", label);
+        return;
+    }
+
+    printf("%-48s %9.2fx vs %s\n", label,
+           candidate->ns_per_op / baseline->ns_per_op, baseline->name);
+}
+
+static void cl_bench_print_speedup(
+    const char *label,
+    const cl_bench_result *candidate,
+    const cl_bench_result *baseline)
+{
+    if (!candidate || !baseline || candidate->ns_per_op <= 0.0 ||
+        baseline->ns_per_op <= 0.0) {
+        printf("%-48s unavailable\n", label);
+        return;
+    }
+
+    printf("%-48s %9.2fx throughput vs %s\n", label,
+           baseline->ns_per_op / candidate->ns_per_op, baseline->name);
+}
+
+static cl_bench_result cl_bench_raw_malloc_free(void)
 {
     double start;
     size_t i;
@@ -70,11 +127,12 @@ static void cl_bench_raw_malloc_free(void)
         free(ptr);
     }
 
-    cl_bench_report("raw malloc/free 32B", CL_BENCH_FAST_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "raw malloc/free 32B", CL_BENCH_FAST_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_system_alloc_free(void)
+static cl_bench_result cl_bench_system_alloc_free(void)
 {
     cl_allocator allocator = cl_system_allocator();
     double start;
@@ -87,11 +145,86 @@ static void cl_bench_system_alloc_free(void)
         cl_free(&allocator, ptr, 32u, 16u);
     }
 
-    cl_bench_report("cl_system alloc/free 32B", CL_BENCH_FAST_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "cl_system alloc/free 32B", CL_BENCH_FAST_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_raw_malloc_realloc_free(void)
+static cl_bench_result cl_bench_raw_malloc_batch_free(void)
+{
+    void *ptrs[CL_BENCH_BATCH_SIZE];
+    double start;
+    size_t round;
+    size_t i;
+
+    start = cl_bench_now_seconds();
+    for (round = 0u; round < CL_BENCH_BATCH_ROUNDS; ++round) {
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            ptrs[i] = malloc(32u);
+            cl_bench_use_ptr(ptrs[i]);
+        }
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            free(ptrs[i]);
+        }
+    }
+
+    return cl_bench_report(
+        "raw malloc batch/free 32B",
+        CL_BENCH_BATCH_ROUNDS * CL_BENCH_BATCH_SIZE,
+        cl_bench_now_seconds() - start);
+}
+
+static cl_bench_result cl_bench_system_batch_free(void)
+{
+    cl_allocator allocator = cl_system_allocator();
+    void *ptrs[CL_BENCH_BATCH_SIZE];
+    double start;
+    size_t round;
+    size_t i;
+
+    start = cl_bench_now_seconds();
+    for (round = 0u; round < CL_BENCH_BATCH_ROUNDS; ++round) {
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            ptrs[i] = cl_alloc(&allocator, 32u, 16u);
+            cl_bench_use_ptr(ptrs[i]);
+        }
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            cl_free(&allocator, ptrs[i], 32u, 16u);
+        }
+    }
+
+    return cl_bench_report(
+        "cl_system batch/free 32B",
+        CL_BENCH_BATCH_ROUNDS * CL_BENCH_BATCH_SIZE,
+        cl_bench_now_seconds() - start);
+}
+
+static cl_bench_result cl_bench_system_mixed_batch_free(void)
+{
+    cl_allocator allocator = cl_system_allocator();
+    void *ptrs[CL_BENCH_BATCH_SIZE];
+    double start;
+    size_t round;
+    size_t i;
+
+    start = cl_bench_now_seconds();
+    for (round = 0u; round < CL_BENCH_BATCH_ROUNDS; ++round) {
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            ptrs[i] = cl_alloc(&allocator, cl_bench_mixed_size(i), 16u);
+            cl_bench_use_ptr(ptrs[i]);
+        }
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            cl_free(&allocator, ptrs[i], cl_bench_mixed_size(i), 16u);
+        }
+    }
+
+    return cl_bench_report(
+        "cl_system mixed batch/free",
+        CL_BENCH_BATCH_ROUNDS * CL_BENCH_BATCH_SIZE,
+        cl_bench_now_seconds() - start);
+}
+
+static cl_bench_result cl_bench_raw_malloc_realloc_free(void)
 {
     double start;
     size_t i;
@@ -116,11 +249,12 @@ static void cl_bench_raw_malloc_realloc_free(void)
         free(ptr);
     }
 
-    cl_bench_report("raw malloc/realloc/free 32B->96B", CL_BENCH_RESIZE_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "raw malloc/realloc/free 32B->96B", CL_BENCH_RESIZE_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_system_resize_free(void)
+static cl_bench_result cl_bench_system_resize_free(void)
 {
     cl_allocator allocator = cl_system_allocator();
     double start;
@@ -146,11 +280,12 @@ static void cl_bench_system_resize_free(void)
         cl_free(&allocator, ptr, 96u, 16u);
     }
 
-    cl_bench_report("cl_system resize/free 32B->96B", CL_BENCH_RESIZE_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "cl_system resize/free 32B->96B", CL_BENCH_RESIZE_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_arena_batch_reset(void)
+static cl_bench_result cl_bench_arena_batch_reset(void)
 {
     static unsigned char storage[CL_BENCH_ARENA_SIZE];
     cl_arena arena;
@@ -174,11 +309,12 @@ static void cl_bench_arena_batch_reset(void)
         }
     }
 
-    cl_bench_report("arena alloc 32B, reset per batch", CL_BENCH_FAST_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "arena alloc 32B, reset per batch", CL_BENCH_FAST_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_arena_mark_restore(void)
+static cl_bench_result cl_bench_arena_mark_restore(void)
 {
     static unsigned char storage[CL_BENCH_ARENA_SIZE];
     cl_arena arena;
@@ -201,11 +337,12 @@ static void cl_bench_arena_mark_restore(void)
         (void)cl_arena_restore(&arena, mark);
     }
 
-    cl_bench_report("arena alloc 32B, mark/restore", CL_BENCH_FAST_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "arena alloc 32B, mark/restore", CL_BENCH_FAST_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_pool_alloc_free(void)
+static cl_bench_result cl_bench_pool_alloc_free(void)
 {
     static unsigned char storage[CL_BENCH_POOL_SIZE];
     cl_pool pool;
@@ -214,8 +351,7 @@ static void cl_bench_pool_alloc_free(void)
     size_t i;
 
     if (!cl_pool_init(&pool, storage, sizeof(storage), 32u, 16u)) {
-        cl_bench_report("pool alloc/free 32B", 0u, 0.0);
-        return;
+        return cl_bench_report("pool alloc/free 32B", 0u, 0.0);
     }
     allocator = cl_pool_allocator(&pool);
 
@@ -230,11 +366,48 @@ static void cl_bench_pool_alloc_free(void)
         cl_free(&allocator, ptr, 32u, 16u);
     }
 
-    cl_bench_report("pool alloc/free 32B", CL_BENCH_FAST_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "pool alloc/free 32B", CL_BENCH_FAST_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_free_list_alloc_free(void)
+static cl_bench_result cl_bench_pool_batch_free(void)
+{
+    static unsigned char storage[CL_BENCH_POOL_SIZE];
+    cl_pool pool;
+    cl_allocator allocator;
+    void *ptrs[CL_BENCH_BATCH_SIZE];
+    double start;
+    size_t round;
+    size_t i;
+
+    if (!cl_pool_init(&pool, storage, sizeof(storage), 32u, 16u) ||
+        cl_pool_block_count(&pool) < CL_BENCH_BATCH_SIZE) {
+        return cl_bench_report("pool batch/free 32B", 0u, 0.0);
+    }
+    allocator = cl_pool_allocator(&pool);
+
+    /*
+     * Batch allocation keeps many slots live at once, which is closer to object
+     * pool workloads than immediately freeing the same slot.
+     */
+    start = cl_bench_now_seconds();
+    for (round = 0u; round < CL_BENCH_BATCH_ROUNDS; ++round) {
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            ptrs[i] = cl_alloc(&allocator, 32u, 16u);
+            cl_bench_use_ptr(ptrs[i]);
+        }
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            cl_free(&allocator, ptrs[i], 32u, 16u);
+        }
+    }
+
+    return cl_bench_report(
+        "pool batch/free 32B", CL_BENCH_BATCH_ROUNDS * CL_BENCH_BATCH_SIZE,
+        cl_bench_now_seconds() - start);
+}
+
+static cl_bench_result cl_bench_free_list_alloc_free(void)
 {
     static unsigned char storage[CL_BENCH_FREE_LIST_SIZE];
     cl_free_list list;
@@ -243,8 +416,7 @@ static void cl_bench_free_list_alloc_free(void)
     size_t i;
 
     if (!cl_free_list_init(&list, storage, sizeof(storage))) {
-        cl_bench_report("free-list alloc/free 32B", 0u, 0.0);
-        return;
+        return cl_bench_report("free-list alloc/free 32B", 0u, 0.0);
     }
     allocator = cl_free_list_allocator(&list);
 
@@ -259,11 +431,48 @@ static void cl_bench_free_list_alloc_free(void)
         cl_free(&allocator, ptr, 32u, 16u);
     }
 
-    cl_bench_report("free-list alloc/free 32B", CL_BENCH_FAST_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "free-list alloc/free 32B", CL_BENCH_FAST_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_debug_alloc_free(void)
+static cl_bench_result cl_bench_free_list_mixed_batch_free(void)
+{
+    static unsigned char storage[CL_BENCH_FREE_LIST_SIZE];
+    cl_free_list list;
+    cl_allocator allocator;
+    void *ptrs[CL_BENCH_BATCH_SIZE];
+    double start;
+    size_t round;
+    size_t i;
+
+    if (!cl_free_list_init(&list, storage, sizeof(storage))) {
+        return cl_bench_report("free-list mixed batch/free", 0u, 0.0);
+    }
+    allocator = cl_free_list_allocator(&list);
+
+    /*
+     * Mixed sizes exercise split and coalesce behavior while keeping the same
+     * lifetime pattern as the matching system allocator row.
+     */
+    start = cl_bench_now_seconds();
+    for (round = 0u; round < CL_BENCH_BATCH_ROUNDS; ++round) {
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            ptrs[i] = cl_alloc(&allocator, cl_bench_mixed_size(i), 16u);
+            cl_bench_use_ptr(ptrs[i]);
+        }
+        for (i = 0u; i < CL_BENCH_BATCH_SIZE; ++i) {
+            cl_free(&allocator, ptrs[i], cl_bench_mixed_size(i), 16u);
+        }
+    }
+
+    return cl_bench_report(
+        "free-list mixed batch/free",
+        CL_BENCH_BATCH_ROUNDS * CL_BENCH_BATCH_SIZE,
+        cl_bench_now_seconds() - start);
+}
+
+static cl_bench_result cl_bench_debug_alloc_free(void)
 {
     cl_allocator system = cl_system_allocator();
     cl_debug_allocator debug;
@@ -287,11 +496,12 @@ static void cl_bench_debug_alloc_free(void)
     }
     cl_debug_allocator_release(&debug);
 
-    cl_bench_report("debug wrapper alloc/free 32B", CL_BENCH_DEBUG_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "debug wrapper alloc/free 32B", CL_BENCH_DEBUG_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
-static void cl_bench_debug_resize_free(void)
+static cl_bench_result cl_bench_debug_resize_free(void)
 {
     cl_allocator system = cl_system_allocator();
     cl_debug_allocator debug;
@@ -323,8 +533,9 @@ static void cl_bench_debug_resize_free(void)
     }
     cl_debug_allocator_release(&debug);
 
-    cl_bench_report("debug wrapper resize/free 32B->96B", CL_BENCH_DEBUG_ITERS,
-                    cl_bench_now_seconds() - start);
+    return cl_bench_report(
+        "debug wrapper resize/free 32B->96B", CL_BENCH_DEBUG_ITERS,
+        cl_bench_now_seconds() - start);
 }
 
 static void cl_bench_print_header(void)
@@ -339,18 +550,63 @@ static void cl_bench_print_header(void)
 
 int main(void)
 {
+    cl_bench_result raw_alloc;
+    cl_bench_result system_alloc;
+    cl_bench_result raw_batch;
+    cl_bench_result system_batch;
+    cl_bench_result system_mixed_batch;
+    cl_bench_result raw_resize;
+    cl_bench_result system_resize;
+    cl_bench_result arena_batch;
+    cl_bench_result arena_mark;
+    cl_bench_result pool;
+    cl_bench_result pool_batch;
+    cl_bench_result free_list;
+    cl_bench_result free_list_mixed_batch;
+    cl_bench_result debug_alloc;
+    cl_bench_result debug_resize;
+
     cl_bench_print_header();
 
-    cl_bench_raw_malloc_free();
-    cl_bench_system_alloc_free();
-    cl_bench_raw_malloc_realloc_free();
-    cl_bench_system_resize_free();
-    cl_bench_arena_batch_reset();
-    cl_bench_arena_mark_restore();
-    cl_bench_pool_alloc_free();
-    cl_bench_free_list_alloc_free();
-    cl_bench_debug_alloc_free();
-    cl_bench_debug_resize_free();
+    raw_alloc = cl_bench_raw_malloc_free();
+    system_alloc = cl_bench_system_alloc_free();
+    raw_batch = cl_bench_raw_malloc_batch_free();
+    system_batch = cl_bench_system_batch_free();
+    system_mixed_batch = cl_bench_system_mixed_batch_free();
+    raw_resize = cl_bench_raw_malloc_realloc_free();
+    system_resize = cl_bench_system_resize_free();
+    arena_batch = cl_bench_arena_batch_reset();
+    arena_mark = cl_bench_arena_mark_restore();
+    pool = cl_bench_pool_alloc_free();
+    pool_batch = cl_bench_pool_batch_free();
+    free_list = cl_bench_free_list_alloc_free();
+    free_list_mixed_batch = cl_bench_free_list_mixed_batch_free();
+    debug_alloc = cl_bench_debug_alloc_free();
+    debug_resize = cl_bench_debug_resize_free();
+
+    putchar('\n');
+    puts("interpretation");
+    cl_bench_print_ratio("cl_system alloc/free wrapper cost", &system_alloc,
+                         &raw_alloc);
+    cl_bench_print_ratio("cl_system batch/free wrapper cost", &system_batch,
+                         &raw_batch);
+    cl_bench_print_ratio("cl_system resize wrapper cost", &system_resize,
+                         &raw_resize);
+    cl_bench_print_speedup("arena batch allocation", &arena_batch,
+                           &system_alloc);
+    cl_bench_print_speedup("arena mark/restore allocation", &arena_mark,
+                           &system_alloc);
+    cl_bench_print_speedup("pool fixed-size reuse", &pool, &system_alloc);
+    cl_bench_print_speedup("pool fixed-size batch reuse", &pool_batch,
+                           &system_batch);
+    cl_bench_print_speedup("free-list variable-size reuse", &free_list,
+                           &system_alloc);
+    cl_bench_print_speedup("free-list mixed-size batch reuse",
+                           &free_list_mixed_batch, &system_mixed_batch);
+    cl_bench_print_ratio("debug alloc/free overhead", &debug_alloc,
+                         &system_alloc);
+    cl_bench_print_ratio("debug resize overhead", &debug_resize,
+                         &system_resize);
 
     putchar('\n');
     printf("sink: %lu\n", (unsigned long)cl_bench_sink);

@@ -61,7 +61,8 @@ larger than the configured block size, and no more strictly aligned than the
 configured block alignment. `cl_pool_reset` rebuilds the free list and
 invalidates outstanding allocations. Pools reserve one byte of caller storage
 per slot for allocation-state diagnostics, so `cl_pool_block_count` is the
-authoritative usable block count after initialization.
+authoritative usable block count after initialization. Freed slot contents are
+allocator-owned metadata until the slot is allocated again.
 
 Pool frees and resizes record contract violations through
 `cl_pool_invalid_free_count`, `cl_pool_mismatch_count`, and
@@ -84,12 +85,14 @@ if (cl_free_list_init(&list, storage, sizeof(storage))) {
 ```
 
 Each allocation stores a small header immediately before the returned pointer.
-Freed blocks are inserted in address order and coalesced with adjacent free
-blocks. Requests must be non-zero and use a power-of-two alignment. `cl_free`
-must receive the same size and alignment used for the allocation; mismatches are
-rejected and leave the allocation owned by the caller. `cl_free_list_reset`
-rebuilds one free block over the full backing storage and invalidates
-outstanding allocations.
+Small freed blocks are cached in size-class bins for fast reuse. Larger freed
+blocks are inserted in address order and coalesced with adjacent free blocks;
+cached small blocks are flushed back to the coalescing list when larger
+allocations need contiguous storage. Requests must be non-zero and use a
+power-of-two alignment. `cl_free` must receive the same size and alignment used
+for the allocation; mismatches are rejected and leave the allocation owned by
+the caller. `cl_free_list_reset` rebuilds one free block over the full backing
+storage and invalidates outstanding allocations.
 
 Free-list frees and resizes record contract violations through
 `cl_free_list_invalid_free_count`, `cl_free_list_mismatch_count`, and

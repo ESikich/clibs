@@ -102,11 +102,15 @@ size_t cl_pool_mismatch_count(const cl_pool *pool);
 size_t cl_pool_double_free_count(const cl_pool *pool);
 cl_allocator cl_pool_allocator(cl_pool *pool);
 
+#define CL_FREE_LIST_SMALL_BIN_COUNT 4
+
 typedef struct cl_free_list {
     unsigned char *base;
     size_t capacity;
     size_t free_bytes;
     void *free_list;
+    void *last_free;
+    void *small_bins[CL_FREE_LIST_SMALL_BIN_COUNT];
     size_t invalid_free_count;
     size_t mismatch_count;
     size_t double_free_count;
@@ -114,8 +118,8 @@ typedef struct cl_free_list {
 
 /*
  * Free-list memory is caller-owned. Allocations are variable-sized, returned
- * blocks are coalesced with adjacent free blocks, and reset invalidates all
- * outstanding allocations.
+ * small blocks may be cached for reuse, larger blocks are coalesced with
+ * adjacent free blocks, and reset invalidates all outstanding allocations.
  */
 bool cl_free_list_init(cl_free_list *list, void *buffer, size_t capacity);
 void cl_free_list_reset(cl_free_list *list);

@@ -21,6 +21,7 @@
 #define CL_DEBUG_GUARD_BYTE 0xA5u
 #define CL_DEBUG_FREED_BYTE 0xDDu
 #define CL_FREE_LIST_MAGIC 0xC1FEEE1157A110C5ull
+#define CL_FREE_LIST_SMALL_MAX_ALIGN 16u
 #define CL_POOL_SLOT_FREE 0u
 #define CL_POOL_SLOT_USED 1u
 
@@ -39,6 +40,12 @@ typedef struct cl_free_list_node {
     struct cl_free_list_node *next;
 } cl_free_list_node;
 
+typedef struct cl_free_list_small_node {
+    size_t size;
+    struct cl_free_list_small_node *next;
+    size_t user_offset;
+} cl_free_list_small_node;
+
 typedef struct cl_free_list_header {
     uint64_t magic;
     size_t block_size;
@@ -46,6 +53,13 @@ typedef struct cl_free_list_header {
     size_t user_size;
     size_t user_align;
 } cl_free_list_header;
+
+static const size_t cl_free_list_small_limits[CL_FREE_LIST_SMALL_BIN_COUNT] = {
+    16u,
+    32u,
+    64u,
+    96u
+};
 
 static size_t cl_max_align(void)
 {
@@ -403,6 +417,19 @@ static bool cl_pool_request_fits(const cl_pool *pool, size_t size, size_t align)
            cl_is_valid_align(align) && align <= pool->block_align;
 }
 
+static bool cl_pool_slot_can_store_index(const cl_pool *pool)
+{
+    return pool && pool->block_stride >= sizeof(void *) + sizeof(size_t);
+}
+
+static void cl_pool_write_free_slot(cl_pool *pool, void *slot, void *next, size_t index)
+{
+    memcpy(slot, &next, sizeof(next));
+    if (cl_pool_slot_can_store_index(pool)) {
+        memcpy((unsigned char *)slot + sizeof(next), &index, sizeof(index));
+    }
+}
+
 bool cl_pool_init(
     cl_pool *pool,
     void *buffer,
@@ -509,7 +536,7 @@ bool cl_pool_init(
     for (i = 0u; i < count; ++i) {
         unsigned char *slot = base + (i * stride);
         void *next = i + 1u < count ? (void *)(slot + stride) : NULL;
-        memcpy(slot, &next, sizeof(next));
+        cl_pool_write_free_slot(pool, slot, next, i);
     }
     pool->free_list = base;
 
@@ -529,7 +556,7 @@ void cl_pool_reset(cl_pool *pool)
         void *next = i + 1u < pool->block_count ?
                          (void *)(slot + pool->block_stride) :
                          NULL;
-        memcpy(slot, &next, sizeof(next));
+        cl_pool_write_free_slot(pool, slot, next, i);
     }
     pool->free_list = pool->base;
     pool->free_count = pool->block_count;
@@ -617,6 +644,20 @@ static bool cl_pool_slot_is_free(const cl_pool *pool, const void *ptr)
     return index < pool->block_count && pool->state[index] == CL_POOL_SLOT_FREE;
 }
 
+static size_t cl_pool_alloc_slot_index(const cl_pool *pool, const void *slot)
+{
+    size_t index;
+
+    if (cl_pool_slot_can_store_index(pool)) {
+        memcpy(&index, (const unsigned char *)slot + sizeof(void *), sizeof(index));
+        if (index < pool->block_count) {
+            return index;
+        }
+    }
+
+    return cl_pool_slot_index(pool, slot);
+}
+
 static void *cl_pool_alloc(void *ctx, size_t size, size_t align)
 {
     cl_pool *pool = (cl_pool *)ctx;
@@ -629,7 +670,7 @@ static void *cl_pool_alloc(void *ctx, size_t size, size_t align)
 
     slot = pool->free_list;
     memcpy(&pool->free_list, slot, sizeof(pool->free_list));
-    index = cl_pool_slot_index(pool, slot);
+    index = cl_pool_alloc_slot_index(pool, slot);
     if (index < pool->block_count) {
         pool->state[index] = CL_POOL_SLOT_USED;
     }
@@ -693,9 +734,9 @@ static void cl_pool_free(void *ctx, void *ptr, size_t size, size_t align)
         return;
     }
 
-    memcpy(ptr, &pool->free_list, sizeof(pool->free_list));
-    pool->free_list = ptr;
     index = cl_pool_slot_index(pool, ptr);
+    cl_pool_write_free_slot(pool, ptr, pool->free_list, index);
+    pool->free_list = ptr;
     if (index < pool->block_count) {
         pool->state[index] = CL_POOL_SLOT_FREE;
     }
@@ -718,6 +759,51 @@ cl_allocator cl_pool_allocator(cl_pool *pool)
 static size_t cl_free_list_min_block_size(void)
 {
     return sizeof(cl_free_list_node);
+}
+
+static size_t cl_free_list_small_bin_index(size_t size)
+{
+    size_t i;
+
+    for (i = 0u; i < CL_FREE_LIST_SMALL_BIN_COUNT; ++i) {
+        if (size <= cl_free_list_small_limits[i]) {
+            return i;
+        }
+    }
+
+    return CL_FREE_LIST_SMALL_BIN_COUNT;
+}
+
+static bool cl_free_list_is_small_request(size_t size, size_t align, size_t *out)
+{
+    size_t index;
+
+    if (cl_normalize_align(align) > CL_FREE_LIST_SMALL_MAX_ALIGN) {
+        return false;
+    }
+
+    index = cl_free_list_small_bin_index(size);
+    if (index == CL_FREE_LIST_SMALL_BIN_COUNT) {
+        return false;
+    }
+
+    if (out) {
+        *out = index;
+    }
+    return true;
+}
+
+static void cl_free_list_clear_small_bins(cl_free_list *list)
+{
+    size_t i;
+
+    if (!list) {
+        return;
+    }
+
+    for (i = 0u; i < CL_FREE_LIST_SMALL_BIN_COUNT; ++i) {
+        list->small_bins[i] = NULL;
+    }
 }
 
 static bool cl_align_up_uintptr(uintptr_t value, size_t align, uintptr_t *out)
@@ -753,6 +839,8 @@ bool cl_free_list_init(cl_free_list *list, void *buffer, size_t capacity)
     list->capacity = 0u;
     list->free_bytes = 0u;
     list->free_list = NULL;
+    list->last_free = NULL;
+    cl_free_list_clear_small_bins(list);
     list->invalid_free_count = 0u;
     list->mismatch_count = 0u;
     list->double_free_count = 0u;
@@ -783,6 +871,8 @@ bool cl_free_list_init(cl_free_list *list, void *buffer, size_t capacity)
     node->size = capacity;
     node->next = NULL;
     list->free_list = node;
+    list->last_free = NULL;
+    cl_free_list_clear_small_bins(list);
 
     return true;
 }
@@ -799,6 +889,8 @@ void cl_free_list_reset(cl_free_list *list)
     node->size = list->capacity;
     node->next = NULL;
     list->free_list = node;
+    list->last_free = NULL;
+    cl_free_list_clear_small_bins(list);
     list->free_bytes = list->capacity;
 }
 
@@ -851,10 +943,27 @@ static bool cl_free_list_owns_ptr(const cl_free_list *list, const void *ptr)
            addr < base + list->capacity;
 }
 
+static bool cl_free_list_node_contains_ptr(const cl_free_list_node *node, uintptr_t addr)
+{
+    uintptr_t block;
+
+    if (!node) {
+        return false;
+    }
+
+    block = (uintptr_t)node;
+    if (node->size > UINTPTR_MAX - block) {
+        return false;
+    }
+
+    return addr >= block && addr < block + node->size;
+}
+
 static bool cl_free_list_ptr_is_free(const cl_free_list *list, const void *ptr)
 {
     const cl_free_list_node *node;
     uintptr_t addr;
+    size_t i;
 
     if (!list || !ptr) {
         return false;
@@ -863,17 +972,21 @@ static bool cl_free_list_ptr_is_free(const cl_free_list *list, const void *ptr)
     addr = (uintptr_t)ptr;
     node = (const cl_free_list_node *)list->free_list;
     while (node) {
-        uintptr_t block = (uintptr_t)node;
-
-        if (node->size > UINTPTR_MAX - block) {
-            return false;
-        }
-
-        if (addr >= block && addr < block + node->size) {
+        if (cl_free_list_node_contains_ptr(node, addr)) {
             return true;
         }
 
         node = node->next;
+    }
+
+    for (i = 0u; i < CL_FREE_LIST_SMALL_BIN_COUNT; ++i) {
+        node = (const cl_free_list_node *)list->small_bins[i];
+        while (node) {
+            if (cl_free_list_node_contains_ptr(node, addr)) {
+                return true;
+            }
+            node = node->next;
+        }
     }
 
     return false;
@@ -887,16 +1000,33 @@ static void cl_free_list_insert_block(
     cl_free_list_node *node;
     cl_free_list_node *prev;
     cl_free_list_node *cur;
+    cl_free_list_node *last;
     uintptr_t node_addr;
 
     if (!list || !block || block_size < cl_free_list_min_block_size()) {
         return;
     }
 
+    node_addr = (uintptr_t)block;
+    last = (cl_free_list_node *)list->last_free;
+    if (last && (uintptr_t)last < node_addr &&
+        (uintptr_t)last <= UINTPTR_MAX - last->size &&
+        (uintptr_t)last + last->size == node_addr &&
+        last->size <= SIZE_MAX - block_size) {
+        cur = last->next;
+        last->size += block_size;
+        if (cur && (uintptr_t)last <= UINTPTR_MAX - last->size &&
+            (uintptr_t)last + last->size == (uintptr_t)cur &&
+            last->size <= SIZE_MAX - cur->size) {
+            last->size += cur->size;
+            last->next = cur->next;
+        }
+        return;
+    }
+
     node = (cl_free_list_node *)block;
     node->size = block_size;
     node->next = NULL;
-    node_addr = (uintptr_t)node;
 
     prev = NULL;
     cur = (cl_free_list_node *)list->free_list;
@@ -922,7 +1052,131 @@ static void cl_free_list_insert_block(
         (uintptr_t)prev + prev->size == node_addr) {
         prev->size += node->size;
         prev->next = node->next;
+        list->last_free = prev;
+    } else {
+        list->last_free = node;
     }
+}
+
+static bool cl_free_list_push_small_block(
+    cl_free_list *list,
+    unsigned char *block,
+    size_t block_size,
+    size_t user_offset,
+    size_t user_size,
+    size_t user_align)
+{
+    cl_free_list_small_node *node;
+    size_t index;
+
+    if (!list || !block ||
+        !cl_free_list_is_small_request(user_size, user_align, &index) ||
+        block_size < sizeof(*node) || user_offset > block_size ||
+        user_size > block_size - user_offset) {
+        return false;
+    }
+
+    node = (cl_free_list_small_node *)block;
+    node->size = block_size;
+    node->next = (cl_free_list_small_node *)list->small_bins[index];
+    node->user_offset = user_offset;
+    list->small_bins[index] = node;
+    return true;
+}
+
+static void *cl_free_list_alloc_small(
+    cl_free_list *list,
+    size_t size,
+    size_t align)
+{
+    size_t index;
+    size_t i;
+
+    if (!cl_free_list_is_small_request(size, align, &index)) {
+        return NULL;
+    }
+
+    for (i = index; i < CL_FREE_LIST_SMALL_BIN_COUNT; ++i) {
+        cl_free_list_small_node *prev = NULL;
+        cl_free_list_small_node *node =
+            (cl_free_list_small_node *)list->small_bins[i];
+
+        while (node) {
+            uintptr_t user_addr;
+            uintptr_t block_start;
+            uintptr_t block_end;
+
+            block_start = (uintptr_t)node;
+            if (node->size <= UINTPTR_MAX - block_start &&
+                node->user_offset <= node->size &&
+                size <= node->size - node->user_offset) {
+                size_t block_size = node->size;
+                size_t user_offset = node->user_offset;
+
+                block_end = block_start + block_size;
+                user_addr = block_start + user_offset;
+
+                if (((user_addr & (uintptr_t)(align - 1u)) != 0u) ||
+                    user_addr > UINTPTR_MAX - size || user_addr + size > block_end) {
+                    prev = node;
+                    node = node->next;
+                    continue;
+                }
+
+                if (prev) {
+                    prev->next = node->next;
+                } else {
+                    list->small_bins[i] = node->next;
+                }
+
+                {
+                    cl_free_list_header *header =
+                        (cl_free_list_header *)(user_addr - sizeof(*header));
+                    header->magic = CL_FREE_LIST_MAGIC;
+                    header->block_size = block_size;
+                    header->user_offset = user_offset;
+                    header->user_size = size;
+                    header->user_align = align;
+                }
+
+                if (list->free_bytes >= block_size) {
+                    list->free_bytes -= block_size;
+                } else {
+                    list->free_bytes = 0u;
+                }
+
+                return (void *)user_addr;
+            }
+
+            prev = node;
+            node = node->next;
+        }
+    }
+
+    return NULL;
+}
+
+static bool cl_free_list_flush_small_bins(cl_free_list *list)
+{
+    bool flushed = false;
+    size_t i;
+
+    if (!list) {
+        return false;
+    }
+
+    for (i = 0u; i < CL_FREE_LIST_SMALL_BIN_COUNT; ++i) {
+        cl_free_list_node *node = (cl_free_list_node *)list->small_bins[i];
+        list->small_bins[i] = NULL;
+        while (node) {
+            cl_free_list_node *next = node->next;
+            cl_free_list_insert_block(list, (unsigned char *)node, node->size);
+            node = next;
+            flushed = true;
+        }
+    }
+
+    return flushed;
 }
 
 static bool cl_free_list_header_for_ptr(
@@ -973,14 +1227,31 @@ static void *cl_free_list_alloc(void *ctx, size_t size, size_t align)
     cl_free_list_node *node;
     size_t effective_align;
     size_t min_block_size;
+    bool small_request;
+    bool flushed;
 
     if (!list || size == 0u || !cl_is_valid_align(align)) {
         return NULL;
     }
 
     effective_align = cl_normalize_align(align);
+    if (effective_align > (size_t)UINTPTR_MAX) {
+        return NULL;
+    }
     min_block_size = cl_free_list_min_block_size();
+    small_request = cl_free_list_is_small_request(size, align, NULL);
+    flushed = false;
 
+    if (small_request) {
+        void *small = cl_free_list_alloc_small(list, size, align);
+        if (small) {
+            return small;
+        }
+    } else {
+        flushed = cl_free_list_flush_small_bins(list);
+    }
+
+retry:
     prev = NULL;
     node = (cl_free_list_node *)list->free_list;
     while (node) {
@@ -991,8 +1262,8 @@ static void *cl_free_list_alloc(void *ctx, size_t size, size_t align)
         size_t prefix_size;
         size_t allocation_size;
         size_t tail_size;
-
-        if (node->size > UINTPTR_MAX - block_start) {
+        if (node->size > UINTPTR_MAX - block_start ||
+            block_start > UINTPTR_MAX - sizeof(cl_free_list_header)) {
             return NULL;
         }
         block_end = block_start + node->size;
@@ -1061,6 +1332,7 @@ static void *cl_free_list_alloc(void *ctx, size_t size, size_t align)
         } else {
             list->free_list = node->next;
         }
+        list->last_free = NULL;
 
         {
             cl_free_list_header *header =
@@ -1079,6 +1351,11 @@ static void *cl_free_list_alloc(void *ctx, size_t size, size_t align)
         }
 
         return (void *)user_addr;
+    }
+
+    if (!flushed && cl_free_list_flush_small_bins(list)) {
+        flushed = true;
+        goto retry;
     }
 
     return NULL;
@@ -1118,7 +1395,10 @@ static void cl_free_list_free(void *ctx, void *ptr, size_t size, size_t align)
     block_size = header->block_size;
     header->magic = 0u;
 
-    cl_free_list_insert_block(list, block, block_size);
+    if (!cl_free_list_push_small_block(
+            list, block, block_size, header->user_offset, size, align)) {
+        cl_free_list_insert_block(list, block, block_size);
+    }
     if (list->free_bytes <= list->capacity - block_size) {
         list->free_bytes += block_size;
     } else {

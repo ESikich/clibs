@@ -18,7 +18,7 @@ paths as well as fast paths.
   debug allocator, tests, and benchmark harness.
 - [x] `allocator`: fixed-size pool allocator.
 - [x] `allocator`: free-list allocator.
-- [ ] `allocator`: stronger benchmark interpretation and benchmark docs.
+- [x] `allocator`: stronger benchmark interpretation and benchmark docs.
 - [ ] `test`: tiny unit test framework.
 - [ ] `bench`: reusable microbenchmark harness.
 
