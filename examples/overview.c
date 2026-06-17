@@ -8,6 +8,7 @@
 #include "cl_alloc.h"
 #include "cl_array.h"
 #include "cl_ascii.h"
+#include "cl_atomic.h"
 #include "cl_bitset.h"
 #include "cl_buffer.h"
 #include "cl_endian.h"
@@ -16,6 +17,7 @@
 #include "cl_libc.h"
 #include "cl_path.h"
 #include "cl_sv.h"
+#include "cl_time.h"
 #include "cl_utf8.h"
 
 #include <inttypes.h>
@@ -280,6 +282,21 @@ static void print_total_as_be64(uint64_t total)
         cl_endian_load_be64(encoded));
 }
 
+static void publish_item_count(cl_atomic_size *counter, size_t count)
+{
+    size_t previous;
+
+    if (!counter) {
+        return;
+    }
+
+    previous = cl_atomic_size_exchange(
+        counter,
+        count,
+        CL_MEMORY_ORDER_RELEASE);
+    printf("atomic count: %zu -> %zu\n", previous, count);
+}
+
 int main(void)
 {
     static unsigned char list_storage[4096];
@@ -295,10 +312,18 @@ int main(void)
     cl_allocator pool_allocator;
     cl_hash_table name_index;
     cl_file_data input_file;
+    cl_atomic_size published_count;
+    cl_timer timer;
+    cl_duration elapsed;
     item_array items;
     char input_path[128];
     char report_path[128];
     void *found = NULL;
+
+    if (cl_timer_start(&timer) != CL_TIME_OK) {
+        fputs("timer start failed\n", stderr);
+        return 1;
+    }
 
     if (!cl_free_list_init(&free_list, list_storage, sizeof(list_storage))) {
         fputs("free-list init failed\n", stderr);
@@ -352,6 +377,8 @@ int main(void)
     (void)unlink(input_path);
 
     compact_items(&items);
+    cl_atomic_size_init(&published_count, 0u);
+    publish_item_count(&published_count, items.size);
     if (items.size >= 2u &&
         cl_strcmp(items.data[0].name, items.data[1].name) < 0) {
         puts("inventory, sorted by input order:");
@@ -420,6 +447,9 @@ int main(void)
         "free-list: used=%zu free=%zu\n",
         cl_free_list_used_bytes(&free_list),
         cl_free_list_free_bytes(&free_list));
+    if (cl_timer_elapsed(&timer, &elapsed) == CL_TIME_OK) {
+        printf("elapsed: %.6f seconds\n", cl_duration_as_seconds(elapsed));
+    }
 
     cl_hash_table_free(&name_index);
     item_array_free(&items);

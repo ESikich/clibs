@@ -54,8 +54,8 @@ paths as well as fast paths.
 - [x] `buffer`: byte buffers, growable arrays, ring buffers.
 - [x] `bitset`: fixed and dynamic bitsets, bit operations, bit scans.
 - [x] `endian`: byte-order conversion, unaligned loads/stores.
-- [ ] `atomics`: thin wrappers around atomics or compiler intrinsics.
-- [ ] `time`: monotonic clock, duration math, timers.
+- [x] `atomics`: thin wrappers around atomics or compiler intrinsics.
+- [x] `time`: monotonic clock, duration math, timers.
 
 ## Data Structures
 
@@ -150,3 +150,5 @@ Foundation work completed:
 - [x] UTF-8 validation, iteration, encoding, and decoding helpers
 - [x] locale-free ASCII classification, case conversion, and digit value helpers
 - [x] byte-order conversion and unaligned fixed-width integer load/store helpers
+- [x] compiler-atomic wrappers for integer and pointer state
+- [x] monotonic clock, checked duration math, and elapsed timer helpers

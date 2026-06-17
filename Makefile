@@ -11,6 +11,7 @@ CPPFLAGS = -D_POSIX_C_SOURCE=200809L -Iinclude
 BUILD_DIR = build
 
 ALLOC_OBJ = $(BUILD_DIR)/cl_alloc.o
+ATOMIC_OBJ = $(BUILD_DIR)/cl_atomic.o
 ARRAY_OBJ = $(BUILD_DIR)/cl_array.o
 ASCII_OBJ = $(BUILD_DIR)/cl_ascii.o
 BITSET_OBJ = $(BUILD_DIR)/cl_bitset.o
@@ -21,10 +22,12 @@ HASH_OBJ = $(BUILD_DIR)/cl_hash.o
 LIBC_OBJ = $(BUILD_DIR)/cl_libc.o
 PATH_OBJ = $(BUILD_DIR)/cl_path.o
 SV_OBJ = $(BUILD_DIR)/cl_sv.o
+TIME_OBJ = $(BUILD_DIR)/cl_time.o
 UTF8_OBJ = $(BUILD_DIR)/cl_utf8.o
 EXAMPLE_OVERVIEW = $(BUILD_DIR)/overview
 TEST_ARRAY = $(BUILD_DIR)/test_array
 TEST_ALLOC = $(BUILD_DIR)/test_alloc
+TEST_ATOMIC = $(BUILD_DIR)/test_atomic
 TEST_BUFFER = $(BUILD_DIR)/test_buffer
 TEST_ENDIAN = $(BUILD_DIR)/test_endian
 TEST_ASCII = $(BUILD_DIR)/test_ascii
@@ -34,14 +37,19 @@ TEST_HASH = $(BUILD_DIR)/test_hash
 TEST_LIBC = $(BUILD_DIR)/test_libc
 TEST_PATH = $(BUILD_DIR)/test_path
 TEST_SV = $(BUILD_DIR)/test_sv
+TEST_TIME = $(BUILD_DIR)/test_time
 TEST_UTF8 = $(BUILD_DIR)/test_utf8
 BENCH_ALLOC = $(BUILD_DIR)/bench_alloc
 
-all: $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_PATH) $(TEST_SV) $(TEST_UTF8) $(BENCH_ALLOC) $(EXAMPLE_OVERVIEW)
+all: $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_ATOMIC) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_PATH) $(TEST_SV) $(TEST_TIME) $(TEST_UTF8) $(BENCH_ALLOC) $(EXAMPLE_OVERVIEW)
 
 $(ALLOC_OBJ): src/cl_alloc.c include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_alloc.c -o $@
+
+$(ATOMIC_OBJ): src/cl_atomic.c include/cl_atomic.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_atomic.c -o $@
 
 $(ARRAY_OBJ): src/cl_array.c include/cl_array.h include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
@@ -83,6 +91,10 @@ $(SV_OBJ): src/cl_sv.c include/cl_sv.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_sv.c -o $@
 
+$(TIME_OBJ): src/cl_time.c include/cl_time.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_time.c -o $@
+
 $(UTF8_OBJ): src/cl_utf8.c include/cl_utf8.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_utf8.c -o $@
@@ -94,6 +106,10 @@ $(TEST_ALLOC): tests/test_alloc.c $(ALLOC_OBJ) include/cl_alloc.h include/cl_tes
 $(TEST_ARRAY): tests/test_array.c $(ARRAY_OBJ) $(ALLOC_OBJ) include/cl_array.h include/cl_alloc.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_array.c $(ARRAY_OBJ) $(ALLOC_OBJ) -o $@
+
+$(TEST_ATOMIC): tests/test_atomic.c $(ATOMIC_OBJ) include/cl_atomic.h include/cl_test.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_atomic.c $(ATOMIC_OBJ) -o $@
 
 $(TEST_ASCII): tests/test_ascii.c $(ASCII_OBJ) include/cl_ascii.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
@@ -131,6 +147,10 @@ $(TEST_SV): tests/test_sv.c $(SV_OBJ) include/cl_sv.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_sv.c $(SV_OBJ) -o $@
 
+$(TEST_TIME): tests/test_time.c $(TIME_OBJ) include/cl_time.h include/cl_test.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_time.c $(TIME_OBJ) -o $@
+
 $(TEST_UTF8): tests/test_utf8.c $(UTF8_OBJ) include/cl_utf8.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_utf8.c $(UTF8_OBJ) -o $@
@@ -139,14 +159,15 @@ $(BENCH_ALLOC): bench/bench_alloc.c $(ALLOC_OBJ) include/cl_alloc.h include/cl_b
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) bench/bench_alloc.c $(ALLOC_OBJ) -o $@
 
-$(EXAMPLE_OVERVIEW): examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(PATH_OBJ) $(SV_OBJ) $(UTF8_OBJ) include/cl_alloc.h include/cl_array.h include/cl_ascii.h include/cl_bitset.h include/cl_buffer.h include/cl_endian.h include/cl_file.h include/cl_hash.h include/cl_libc.h include/cl_path.h include/cl_sv.h include/cl_utf8.h
+$(EXAMPLE_OVERVIEW): examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(ATOMIC_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(PATH_OBJ) $(SV_OBJ) $(TIME_OBJ) $(UTF8_OBJ) include/cl_alloc.h include/cl_array.h include/cl_ascii.h include/cl_atomic.h include/cl_bitset.h include/cl_buffer.h include/cl_endian.h include/cl_file.h include/cl_hash.h include/cl_libc.h include/cl_path.h include/cl_sv.h include/cl_time.h include/cl_utf8.h
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(PATH_OBJ) $(SV_OBJ) $(UTF8_OBJ) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(ATOMIC_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(PATH_OBJ) $(SV_OBJ) $(TIME_OBJ) $(UTF8_OBJ) -o $@
 
-test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_PATH) $(TEST_SV) $(TEST_UTF8)
+test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_ATOMIC) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_PATH) $(TEST_SV) $(TEST_TIME) $(TEST_UTF8)
 	$(TEST_ALLOC)
 	$(TEST_ARRAY)
 	$(TEST_ASCII)
+	$(TEST_ATOMIC)
 	$(TEST_BITSET)
 	$(TEST_BUFFER)
 	$(TEST_ENDIAN)
@@ -155,6 +176,7 @@ test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_BITSET) $(TEST_BUFF
 	$(TEST_LIBC)
 	$(TEST_PATH)
 	$(TEST_SV)
+	$(TEST_TIME)
 	$(TEST_UTF8)
 
 bench: FORCE $(BENCH_ALLOC)

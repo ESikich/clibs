@@ -11,6 +11,7 @@ This directory holds project documentation that should move with the code.
 
 - [Project TODO](../TODO.md)
 - [Allocator Library](cl_alloc.md)
+- [Atomic Library](cl_atomic.md)
 - [Array Library](cl_array.md)
 - [ASCII Library](cl_ascii.md)
 - [Bitset Library](cl_bitset.md)
@@ -21,6 +22,7 @@ This directory holds project documentation that should move with the code.
 - [libc-mini Library](cl_libc.md)
 - [Path Library](cl_path.md)
 - [String-View Library](cl_sv.md)
+- [Time Library](cl_time.md)
 - [UTF-8 Library](cl_utf8.md)
 - [Test Helpers](cl_test.md)
 - [Benchmark Helpers](cl_bench.md)

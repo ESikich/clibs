@@ -25,6 +25,9 @@ that portability envelope unless a later project decision changes it.
 Pool and free-list allocators also expose counters for invalid frees,
 size/alignment mismatches, and double-free attempts.
 
+`cl_atomic` provides thin C99-friendly wrappers around GCC/Clang `__atomic`
+builtins for integer and pointer state with explicit memory orders.
+
 The test suite uses `cl_test`, a tiny header-only unit test helper for C99 test
 programs. Benchmarks use `cl_bench`, a matching header-only helper for monotonic
 timing and compact benchmark reporting.
@@ -64,6 +67,9 @@ non-owning byte keys with caller-owned pointer values.
 `cl_path` provides lexical POSIX path normalization, joining, basename, and
 dirname helpers over caller-owned buffers and non-owning views.
 
+`cl_time` provides monotonic timestamps, checked duration math, and simple
+elapsed timer helpers over signed 64-bit nanosecond values.
+
 `cl_utf8` provides allocation-free UTF-8 validation, decoding, encoding, and
 iteration over caller-owned byte spans.
 
@@ -91,11 +97,12 @@ make example
 
 The example in [examples/overview.c](examples/overview.c) parses records with
 `cl_sv`, stores them in a `cl_array`, backs allocations with `cl_alloc`, uses
-`cl_hash` for name lookups, uses `cl_bitset` to mark selected records, uses
-`cl_buffer` for bounded byte-stream handling, uses `cl_endian` for explicit
-binary byte order, uses `cl_path` for lexical path handling, uses `cl_utf8` for
-input validation, uses `cl_ascii` for locale-free byte classification, and uses
-`cl_libc` helpers for bounded byte and string operations. Notes live in
+`cl_hash` for name lookups, uses `cl_atomic` to publish a count, uses
+`cl_bitset` to mark selected records, uses `cl_buffer` for bounded byte-stream
+handling, uses `cl_endian` for explicit binary byte order, uses `cl_path` for
+lexical path handling, uses `cl_time` to measure elapsed runtime, uses `cl_utf8`
+for input validation, uses `cl_ascii` for locale-free byte classification, and
+uses `cl_libc` helpers for bounded byte and string operations. Notes live in
 [docs/examples.md](docs/examples.md).
 
 Project conventions live in [AGENTS.md](AGENTS.md). Documentation lives in
