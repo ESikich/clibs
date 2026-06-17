@@ -17,7 +17,7 @@ paths as well as fast paths.
 - [x] `allocator`: checked allocation interface, system allocator, arena allocator,
   debug allocator, tests, and benchmark harness.
 - [x] `allocator`: fixed-size pool allocator.
-- [ ] `allocator`: free-list allocator.
+- [x] `allocator`: free-list allocator.
 - [ ] `allocator`: stronger benchmark interpretation and benchmark docs.
 - [ ] `test`: tiny unit test framework.
 - [ ] `bench`: reusable microbenchmark harness.
@@ -42,7 +42,7 @@ paths as well as fast paths.
 
 - [ ] `libc-mini`: tiny subset of libc: `memcpy`, `memmove`, `memset`, `memcmp`,
   `strlen`, `strcmp`, `strchr`, etc.
-- [~] `allocator`: arena allocator, bump allocator, free-list allocator, pool
+- [x] `allocator`: arena allocator, bump allocator, free-list allocator, pool
   allocator.
 - [ ] `string-view`: non-owning string slices, trimming, splitting, parsing
   helpers.
@@ -126,7 +126,7 @@ hash maps, parsers, file readers, JSON, HTTP, and most later libraries.
 The next allocator work should be:
 
 - [x] fixed-size pool allocator
-- [ ] free-list allocator
+- [x] free-list allocator
 - [ ] debug checks for pool/free-list allocators
-- [ ] benchmarks that compare pool/free-list behavior against arena and system
+- [x] benchmarks that compare pool/free-list behavior against arena and system
   allocation

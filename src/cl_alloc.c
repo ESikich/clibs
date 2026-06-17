@@ -1,6 +1,6 @@
 /*
  * cl_alloc.c
- * Purpose: Allocator implementations for system, arena, pool, and debug allocation.
+ * Purpose: Allocator implementations for system, arena, pool, free-list, and debug allocation.
  * POSIX target: POSIX.1-2008 compatible C99.
  * Date modified: 2026-06-17.
  */
@@ -20,6 +20,7 @@
 #define CL_DEBUG_GUARD_SIZE 16u
 #define CL_DEBUG_GUARD_BYTE 0xA5u
 #define CL_DEBUG_FREED_BYTE 0xDDu
+#define CL_FREE_LIST_MAGIC 0xC1FEEE1157A110C5ull
 
 typedef struct cl_debug_header {
     struct cl_debug_header *next;
@@ -30,6 +31,19 @@ typedef struct cl_debug_header {
     size_t user_size;
     size_t user_align;
 } cl_debug_header;
+
+typedef struct cl_free_list_node {
+    size_t size;
+    struct cl_free_list_node *next;
+} cl_free_list_node;
+
+typedef struct cl_free_list_header {
+    uint64_t magic;
+    size_t block_size;
+    size_t user_offset;
+    size_t user_size;
+    size_t user_align;
+} cl_free_list_header;
 
 static size_t cl_max_align(void)
 {
@@ -589,6 +603,440 @@ cl_allocator cl_pool_allocator(cl_pool *pool)
     allocator.alloc = cl_pool_alloc;
     allocator.resize = cl_pool_resize;
     allocator.free = cl_pool_free;
+    return allocator;
+}
+
+static size_t cl_free_list_min_block_size(void)
+{
+    return sizeof(cl_free_list_node);
+}
+
+static bool cl_align_up_uintptr(uintptr_t value, size_t align, uintptr_t *out)
+{
+    uintptr_t mask;
+
+    if (!out || !cl_is_valid_align(align) || align > (size_t)UINTPTR_MAX) {
+        return false;
+    }
+
+    mask = (uintptr_t)(align - 1u);
+    if (value > UINTPTR_MAX - mask) {
+        return false;
+    }
+
+    *out = (value + mask) & ~mask;
+    return true;
+}
+
+bool cl_free_list_init(cl_free_list *list, void *buffer, size_t capacity)
+{
+    uintptr_t raw;
+    uintptr_t aligned;
+    size_t padding;
+    size_t min_block_size;
+    cl_free_list_node *node;
+
+    if (!list) {
+        return false;
+    }
+
+    list->base = NULL;
+    list->capacity = 0u;
+    list->free_bytes = 0u;
+    list->free_list = NULL;
+
+    min_block_size = cl_free_list_min_block_size();
+    if (!buffer || capacity < min_block_size) {
+        return false;
+    }
+
+    raw = (uintptr_t)buffer;
+    if (!cl_align_up_uintptr(raw, sizeof(void *), &aligned)) {
+        return false;
+    }
+
+    padding = (size_t)(aligned - raw);
+    if (padding > capacity || capacity - padding < min_block_size) {
+        return false;
+    }
+
+    capacity -= padding;
+    capacity -= capacity % sizeof(void *);
+
+    list->base = (unsigned char *)aligned;
+    list->capacity = capacity;
+    list->free_bytes = capacity;
+
+    node = (cl_free_list_node *)list->base;
+    node->size = capacity;
+    node->next = NULL;
+    list->free_list = node;
+
+    return true;
+}
+
+void cl_free_list_reset(cl_free_list *list)
+{
+    cl_free_list_node *node;
+
+    if (!list || !list->base || list->capacity < cl_free_list_min_block_size()) {
+        return;
+    }
+
+    node = (cl_free_list_node *)list->base;
+    node->size = list->capacity;
+    node->next = NULL;
+    list->free_list = node;
+    list->free_bytes = list->capacity;
+}
+
+size_t cl_free_list_capacity(const cl_free_list *list)
+{
+    return list ? list->capacity : 0u;
+}
+
+size_t cl_free_list_free_bytes(const cl_free_list *list)
+{
+    return list ? list->free_bytes : 0u;
+}
+
+size_t cl_free_list_used_bytes(const cl_free_list *list)
+{
+    if (!list || list->free_bytes > list->capacity) {
+        return 0u;
+    }
+
+    return list->capacity - list->free_bytes;
+}
+
+static bool cl_free_list_owns_ptr(const cl_free_list *list, const void *ptr)
+{
+    uintptr_t base;
+    uintptr_t addr;
+
+    if (!list || !list->base || !ptr) {
+        return false;
+    }
+
+    base = (uintptr_t)list->base;
+    addr = (uintptr_t)ptr;
+    return list->capacity <= UINTPTR_MAX - base && addr >= base &&
+           addr < base + list->capacity;
+}
+
+static void cl_free_list_insert_block(
+    cl_free_list *list,
+    unsigned char *block,
+    size_t block_size)
+{
+    cl_free_list_node *node;
+    cl_free_list_node *prev;
+    cl_free_list_node *cur;
+    uintptr_t node_addr;
+
+    if (!list || !block || block_size < cl_free_list_min_block_size()) {
+        return;
+    }
+
+    node = (cl_free_list_node *)block;
+    node->size = block_size;
+    node->next = NULL;
+    node_addr = (uintptr_t)node;
+
+    prev = NULL;
+    cur = (cl_free_list_node *)list->free_list;
+    while (cur && (uintptr_t)cur < node_addr) {
+        prev = cur;
+        cur = cur->next;
+    }
+
+    node->next = cur;
+    if (prev) {
+        prev->next = node;
+    } else {
+        list->free_list = node;
+    }
+
+    if (cur && node_addr <= UINTPTR_MAX - node->size &&
+        node_addr + node->size == (uintptr_t)cur) {
+        node->size += cur->size;
+        node->next = cur->next;
+    }
+
+    if (prev && (uintptr_t)prev <= UINTPTR_MAX - prev->size &&
+        (uintptr_t)prev + prev->size == node_addr) {
+        prev->size += node->size;
+        prev->next = node->next;
+    }
+}
+
+static bool cl_free_list_header_for_ptr(
+    const cl_free_list *list,
+    void *ptr,
+    cl_free_list_header **out)
+{
+    cl_free_list_header *header;
+    uintptr_t user;
+    uintptr_t base;
+    uintptr_t block_start;
+
+    if (!out || !cl_free_list_owns_ptr(list, ptr)) {
+        return false;
+    }
+
+    user = (uintptr_t)ptr;
+    if (user < (uintptr_t)list->base + sizeof(*header)) {
+        return false;
+    }
+
+    header = (cl_free_list_header *)((unsigned char *)ptr - sizeof(*header));
+    if (header->magic != CL_FREE_LIST_MAGIC || header->user_offset < sizeof(*header)) {
+        return false;
+    }
+
+    base = (uintptr_t)list->base;
+    if (user < header->user_offset || user - header->user_offset < base) {
+        return false;
+    }
+
+    block_start = user - header->user_offset;
+    if (header->block_size > list->capacity ||
+        block_start > base + list->capacity - header->block_size ||
+        header->user_offset > header->block_size ||
+        header->user_size > header->block_size - header->user_offset) {
+        return false;
+    }
+
+    *out = header;
+    return true;
+}
+
+static void *cl_free_list_alloc(void *ctx, size_t size, size_t align)
+{
+    cl_free_list *list = (cl_free_list *)ctx;
+    cl_free_list_node *prev;
+    cl_free_list_node *node;
+    size_t effective_align;
+    size_t min_block_size;
+
+    if (!list || size == 0u || !cl_is_valid_align(align)) {
+        return NULL;
+    }
+
+    effective_align = cl_normalize_align(align);
+    min_block_size = cl_free_list_min_block_size();
+
+    prev = NULL;
+    node = (cl_free_list_node *)list->free_list;
+    while (node) {
+        uintptr_t block_start = (uintptr_t)node;
+        uintptr_t block_end;
+        uintptr_t user_addr;
+        uintptr_t tail_start;
+        size_t prefix_size;
+        size_t allocation_size;
+        size_t tail_size;
+
+        if (node->size > UINTPTR_MAX - block_start) {
+            return NULL;
+        }
+        block_end = block_start + node->size;
+
+        if (!cl_align_up_uintptr(block_start + sizeof(cl_free_list_header),
+                                 effective_align, &user_addr) ||
+            user_addr > UINTPTR_MAX - size) {
+            return NULL;
+        }
+
+        prefix_size = (size_t)(user_addr - sizeof(cl_free_list_header) - block_start);
+        if (prefix_size != 0u && prefix_size < min_block_size) {
+            prefix_size = 0u;
+        }
+
+        if (prefix_size != 0u) {
+            user_addr = block_start + prefix_size + sizeof(cl_free_list_header);
+            if (!cl_align_up_uintptr(user_addr, effective_align, &user_addr) ||
+                user_addr > UINTPTR_MAX - size) {
+                return NULL;
+            }
+        }
+
+        if (user_addr + size > block_end) {
+            prev = node;
+            node = node->next;
+            continue;
+        }
+
+        if (!cl_align_up_uintptr(user_addr + size, sizeof(void *), &tail_start)) {
+            return NULL;
+        }
+        if (tail_start > block_end) {
+            prev = node;
+            node = node->next;
+            continue;
+        }
+
+        tail_size = (size_t)(block_end - tail_start);
+        if (tail_size < min_block_size) {
+            tail_start = block_end;
+            tail_size = 0u;
+        }
+
+        allocation_size = (size_t)(tail_start - (block_start + prefix_size));
+
+        if (prefix_size != 0u) {
+            node->size = prefix_size;
+            if (tail_size != 0u) {
+                cl_free_list_node *tail = (cl_free_list_node *)tail_start;
+                tail->size = tail_size;
+                tail->next = node->next;
+                node->next = tail;
+            }
+        } else if (tail_size != 0u) {
+            cl_free_list_node *tail = (cl_free_list_node *)tail_start;
+            tail->size = tail_size;
+            tail->next = node->next;
+            if (prev) {
+                prev->next = tail;
+            } else {
+                list->free_list = tail;
+            }
+        } else if (prev) {
+            prev->next = node->next;
+        } else {
+            list->free_list = node->next;
+        }
+
+        {
+            cl_free_list_header *header =
+                (cl_free_list_header *)(user_addr - sizeof(*header));
+            header->magic = CL_FREE_LIST_MAGIC;
+            header->block_size = allocation_size;
+            header->user_offset = (size_t)(user_addr - (block_start + prefix_size));
+            header->user_size = size;
+            header->user_align = align;
+        }
+
+        if (list->free_bytes >= allocation_size) {
+            list->free_bytes -= allocation_size;
+        } else {
+            list->free_bytes = 0u;
+        }
+
+        return (void *)user_addr;
+    }
+
+    return NULL;
+}
+
+static void cl_free_list_free(void *ctx, void *ptr, size_t size, size_t align)
+{
+    cl_free_list *list = (cl_free_list *)ctx;
+    cl_free_list_header *header;
+    unsigned char *block;
+    size_t block_size;
+
+    if (!list || !ptr || size == 0u || !cl_is_valid_align(align) ||
+        !cl_free_list_header_for_ptr(list, ptr, &header) ||
+        header->user_size != size || header->user_align != align) {
+        return;
+    }
+
+    block = (unsigned char *)ptr - header->user_offset;
+    block_size = header->block_size;
+    header->magic = 0u;
+
+    cl_free_list_insert_block(list, block, block_size);
+    if (list->free_bytes <= list->capacity - block_size) {
+        list->free_bytes += block_size;
+    } else {
+        list->free_bytes = list->capacity;
+    }
+}
+
+static void *cl_free_list_resize(
+    void *ctx,
+    void *ptr,
+    size_t old_size,
+    size_t new_size,
+    size_t align)
+{
+    cl_free_list *list = (cl_free_list *)ctx;
+    cl_free_list_header *header;
+    unsigned char *user;
+    unsigned char *block;
+    uintptr_t new_end;
+    uintptr_t tail_start;
+    size_t old_block_size;
+    size_t new_block_size;
+    size_t remainder;
+    void *next;
+
+    if (!ptr) {
+        return cl_free_list_alloc(ctx, new_size, align);
+    }
+
+    if (new_size == 0u) {
+        cl_free_list_free(ctx, ptr, old_size, align);
+        return NULL;
+    }
+
+    if (!list || old_size == 0u || !cl_is_valid_align(align) ||
+        !cl_free_list_header_for_ptr(list, ptr, &header) ||
+        header->user_size != old_size || header->user_align != align) {
+        return NULL;
+    }
+
+    if (new_size <= old_size) {
+        user = (unsigned char *)ptr;
+        block = user - header->user_offset;
+        old_block_size = header->block_size;
+
+        if ((uintptr_t)user > UINTPTR_MAX - new_size ||
+            !cl_align_up_uintptr((uintptr_t)user + new_size, sizeof(void *),
+                                 &tail_start)) {
+            return NULL;
+        }
+
+        new_end = tail_start;
+        new_block_size = (size_t)(new_end - (uintptr_t)block);
+        if (new_block_size > old_block_size) {
+            return NULL;
+        }
+        remainder = old_block_size - new_block_size;
+
+        header->user_size = new_size;
+        if (remainder >= cl_free_list_min_block_size()) {
+            header->block_size = new_block_size;
+            cl_free_list_insert_block(list, (unsigned char *)new_end, remainder);
+            if (list->free_bytes <= list->capacity - remainder) {
+                list->free_bytes += remainder;
+            } else {
+                list->free_bytes = list->capacity;
+            }
+        }
+
+        return ptr;
+    }
+
+    next = cl_free_list_alloc(ctx, new_size, align);
+    if (!next) {
+        return NULL;
+    }
+
+    memcpy(next, ptr, old_size);
+    cl_free_list_free(ctx, ptr, old_size, align);
+    return next;
+}
+
+cl_allocator cl_free_list_allocator(cl_free_list *list)
+{
+    cl_allocator allocator;
+
+    allocator.ctx = list;
+    allocator.alloc = cl_free_list_alloc;
+    allocator.resize = cl_free_list_resize;
+    allocator.free = cl_free_list_free;
     return allocator;
 }
 

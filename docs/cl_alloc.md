@@ -8,7 +8,7 @@ Date modified: 2026-06-17.
 # cl_alloc
 
 `cl_alloc` is the first foundation library in this repository. It provides a
-small explicit allocator interface and four allocator implementations.
+small explicit allocator interface and five allocator implementations.
 
 ## Interface
 
@@ -36,6 +36,8 @@ detect mismatches.
 - `cl_arena_allocator` provides bump allocation over caller-owned memory.
 - `cl_pool_allocator` provides fixed-size block allocation over caller-owned
   memory.
+- `cl_free_list_allocator` provides variable-size allocation over caller-owned
+  memory, with block splitting and coalescing.
 - `cl_debug_allocator` wraps another allocator and adds guard bytes, mismatch
   detection, double-free detection for its own pointers, and live/peak counters.
 
@@ -59,6 +61,28 @@ larger than the configured block size, and no more strictly aligned than the
 configured block alignment. `cl_pool_reset` rebuilds the free list and
 invalidates outstanding allocations.
 
+## Free Lists
+
+Free lists are initialized with caller-owned storage:
+
+```c
+unsigned char storage[4096];
+cl_free_list list;
+cl_allocator allocator;
+
+if (cl_free_list_init(&list, storage, sizeof(storage))) {
+    allocator = cl_free_list_allocator(&list);
+}
+```
+
+Each allocation stores a small header immediately before the returned pointer.
+Freed blocks are inserted in address order and coalesced with adjacent free
+blocks. Requests must be non-zero and use a power-of-two alignment. `cl_free`
+must receive the same size and alignment used for the allocation; mismatches are
+rejected and leave the allocation owned by the caller. `cl_free_list_reset`
+rebuilds one free block over the full backing storage and invalidates
+outstanding allocations.
+
 ## Safety Properties
 
 - Zero-size allocations return `NULL`.
@@ -67,6 +91,8 @@ invalidates outstanding allocations.
 - Arena restore only accepts marks at or before the current arena offset.
 - Pool frees reject pointers outside the pool and pointers that do not point to
   the start of a pool slot.
+- Free-list frees reject pointers outside the managed storage and size/alignment
+  mismatches for recognized free-list allocations.
 - Debug allocations are quarantined until `cl_debug_allocator_release` so double
   frees can be detected without reading memory already returned to the backing
   allocator.

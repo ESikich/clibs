@@ -22,6 +22,7 @@ The allocator benchmark compares:
 - arena allocation with periodic batch reset
 - arena allocation with mark/restore
 - pool allocation/free for fixed-size blocks
+- free-list allocation/free for variable-size storage reuse
 - debug allocator allocation and resize overhead
 
 Rows are reported as elapsed seconds and normalized nanoseconds per operation.
@@ -37,6 +38,8 @@ move from run to run, so the main signal is the relationship between rows:
 - arena rows should be fastest because they mostly adjust an offset
 - the pool row should be close to arena timings for fixed-size allocate/free
   reuse
+- the free-list row should usually sit between pool and system allocation
+  because it handles variable sizes with split/coalesce bookkeeping
 - `cl_system_allocator` should be close to raw `malloc`/`free`, with some wrapper
   overhead
 - debug rows should be much slower because they add guards, metadata, poisoning,

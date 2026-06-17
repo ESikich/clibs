@@ -95,6 +95,25 @@ size_t cl_pool_free_count(const cl_pool *pool);
 size_t cl_pool_used_count(const cl_pool *pool);
 cl_allocator cl_pool_allocator(cl_pool *pool);
 
+typedef struct cl_free_list {
+    unsigned char *base;
+    size_t capacity;
+    size_t free_bytes;
+    void *free_list;
+} cl_free_list;
+
+/*
+ * Free-list memory is caller-owned. Allocations are variable-sized, returned
+ * blocks are coalesced with adjacent free blocks, and reset invalidates all
+ * outstanding allocations.
+ */
+bool cl_free_list_init(cl_free_list *list, void *buffer, size_t capacity);
+void cl_free_list_reset(cl_free_list *list);
+size_t cl_free_list_capacity(const cl_free_list *list);
+size_t cl_free_list_free_bytes(const cl_free_list *list);
+size_t cl_free_list_used_bytes(const cl_free_list *list);
+cl_allocator cl_free_list_allocator(cl_free_list *list);
+
 typedef struct cl_debug_allocator {
     cl_allocator backing;
     void *blocks;

@@ -237,6 +237,116 @@ static int test_pool_allocator_rejects_bad_requests(void)
     return 0;
 }
 
+static int test_free_list_allocator_reuses_and_coalesces(void)
+{
+    unsigned char storage[512];
+    cl_free_list list;
+    cl_allocator allocator;
+    void *a;
+    void *b;
+    void *c;
+    size_t capacity;
+
+    CHECK(cl_free_list_init(&list, storage, sizeof(storage)));
+    allocator = cl_free_list_allocator(&list);
+    capacity = cl_free_list_capacity(&list);
+    CHECK(capacity > 0u);
+    CHECK(cl_free_list_free_bytes(&list) == capacity);
+
+    a = cl_alloc(&allocator, 64u, 16u);
+    b = cl_alloc(&allocator, 80u, 32u);
+    CHECK(a != NULL);
+    CHECK(b != NULL);
+    CHECK(a != b);
+    CHECK(((uintptr_t)a & 15u) == 0u);
+    CHECK(((uintptr_t)b & 31u) == 0u);
+    CHECK(cl_free_list_used_bytes(&list) > 144u);
+
+    cl_free(&allocator, a, 64u, 16u);
+    cl_free(&allocator, b, 80u, 32u);
+    CHECK(cl_free_list_free_bytes(&list) == capacity);
+    CHECK(cl_free_list_used_bytes(&list) == 0u);
+
+    c = cl_alloc(&allocator, 160u, 16u);
+    CHECK(c != NULL);
+    cl_free(&allocator, c, 160u, 16u);
+    CHECK(cl_free_list_free_bytes(&list) == capacity);
+
+    return 0;
+}
+
+static int test_free_list_allocator_resize_preserves_data(void)
+{
+    unsigned char storage[512];
+    cl_free_list list;
+    cl_allocator allocator;
+    unsigned char *ptr;
+    unsigned char *grown;
+    unsigned char *shrunk;
+    size_t i;
+
+    CHECK(cl_free_list_init(&list, storage, sizeof(storage)));
+    allocator = cl_free_list_allocator(&list);
+
+    ptr = cl_alloc(&allocator, 32u, 16u);
+    CHECK(ptr != NULL);
+    for (i = 0u; i < 32u; ++i) {
+        ptr[i] = (unsigned char)(0x40u + i);
+    }
+
+    grown = cl_resize(&allocator, ptr, 32u, 96u, 16u);
+    CHECK(grown != NULL);
+    for (i = 0u; i < 32u; ++i) {
+        CHECK(grown[i] == (unsigned char)(0x40u + i));
+    }
+
+    shrunk = cl_resize(&allocator, grown, 96u, 24u, 16u);
+    CHECK(shrunk == grown);
+    for (i = 0u; i < 24u; ++i) {
+        CHECK(shrunk[i] == (unsigned char)(0x40u + i));
+    }
+
+    cl_free(&allocator, shrunk, 24u, 16u);
+    CHECK(cl_free_list_used_bytes(&list) == 0u);
+
+    return 0;
+}
+
+static int test_free_list_allocator_rejects_bad_requests(void)
+{
+    unsigned char storage[256];
+    unsigned char foreign[32];
+    cl_free_list list;
+    cl_allocator allocator;
+    void *ptr;
+    size_t used;
+
+    CHECK(!cl_free_list_init(&list, storage, 1u));
+    CHECK(cl_free_list_init(&list, storage, sizeof(storage)));
+    allocator = cl_free_list_allocator(&list);
+
+    CHECK(cl_alloc(&allocator, 16u, 3u) == NULL);
+    CHECK(cl_alloc(&allocator, sizeof(storage) * 2u, 8u) == NULL);
+
+    ptr = cl_alloc(&allocator, 48u, 8u);
+    CHECK(ptr != NULL);
+    used = cl_free_list_used_bytes(&list);
+
+    cl_free(&allocator, foreign, 48u, 8u);
+    CHECK(cl_free_list_used_bytes(&list) == used);
+
+    cl_free(&allocator, ptr, 32u, 8u);
+    CHECK(cl_free_list_used_bytes(&list) == used);
+
+    cl_free(&allocator, ptr, 48u, 16u);
+    CHECK(cl_free_list_used_bytes(&list) == used);
+
+    cl_free(&allocator, ptr, 48u, 8u);
+    CHECK(cl_free_list_used_bytes(&list) == 0u);
+
+    return 0;
+}
+
 static int test_debug_allocator_counts(void)
 {
     cl_allocator system = cl_system_allocator();
@@ -368,6 +478,9 @@ int main(void)
     CHECK(test_pool_allocator_reuses_blocks() == 0);
     CHECK(test_pool_allocator_exhaustion_and_reset() == 0);
     CHECK(test_pool_allocator_rejects_bad_requests() == 0);
+    CHECK(test_free_list_allocator_reuses_and_coalesces() == 0);
+    CHECK(test_free_list_allocator_resize_preserves_data() == 0);
+    CHECK(test_free_list_allocator_rejects_bad_requests() == 0);
     CHECK(test_debug_allocator_counts() == 0);
     CHECK(test_debug_allocator_detects_overrun() == 0);
     CHECK(test_debug_allocator_detects_mismatch() == 0);
