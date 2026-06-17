@@ -43,6 +43,15 @@ Documentation belongs in `docs/` and should be updated in the same change as the
 code it describes. Keep library documentation focused on contracts, safety
 properties, portability requirements, and examples.
 
+# Roadmap Hygiene
+
+Treat `TODO.md` as maintained project state, not loose notes. When work
+completes, mark the matching item complete everywhere it appears, update any
+"next work" notes that the change makes stale, and keep roadmap guidance concise
+instead of adding prose that repeats nearby checklist items. Before committing,
+scan `TODO.md` for contradictions between Current Focus, category sections, and
+Build Order Notes.
+
 # Verification
 
 Run `make test` after code changes. Run `make bench` when allocator behavior or

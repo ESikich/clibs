@@ -113,7 +113,7 @@ paths as well as fast paths.
 - [ ] `log`: structured logging with levels/sinks.
 - [ ] `assert`: assertions, panic handler, debug traps.
 - [x] `test`: tiny unit test framework.
-- [ ] `bench`: microbenchmark harness.
+- [x] `bench`: reusable microbenchmark harness.
 - [ ] `trace`: scoped tracing/profiling events.
 - [ ] `error`: error codes, error strings, result type conventions.
 
@@ -123,12 +123,12 @@ Start with allocator, then immediately build reusable test and benchmark support
 around it. Allocation policy is the foundation for strings, buffers, arrays,
 hash maps, parsers, file readers, JSON, HTTP, and most later libraries.
 
-Allocator foundation work completed:
+Foundation work completed:
 
 - [x] fixed-size pool allocator
 - [x] free-list allocator
 - [x] debug checks for pool/free-list allocators
 - [x] benchmarks that compare pool/free-list behavior against arena and system
   allocation
-
-The next build-support work should be reusable test and benchmark helpers.
+- [x] reusable unit test helper
+- [x] reusable microbenchmark helper
