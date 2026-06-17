@@ -43,6 +43,10 @@ zero-initialized growth through `resize`.
 `cl_ascii` provides locale-free ASCII classification, case conversion, and
 digit/hex value helpers.
 
+`cl_bitset` provides fixed-storage and allocator-backed bitsets with
+range-checked bit access, boolean operations, population counts, and
+first-set/first-clear scans.
+
 `cl_buffer` provides owned growable byte buffers backed by `cl_allocator` plus
 caller-owned ring buffers for bounded FIFO byte streams.
 
@@ -84,10 +88,11 @@ make example
 
 The example in [examples/overview.c](examples/overview.c) parses records with
 `cl_sv`, stores them in a `cl_array`, backs allocations with `cl_alloc`, uses
-`cl_hash` for name lookups, uses `cl_buffer` for bounded byte-stream handling,
-uses `cl_path` for lexical path handling, uses `cl_utf8` for input validation,
-uses `cl_ascii` for locale-free byte classification, and uses `cl_libc` helpers
-for bounded byte and string operations. Notes live in [docs/examples.md](docs/examples.md).
+`cl_hash` for name lookups, uses `cl_bitset` to mark selected records, uses
+`cl_buffer` for bounded byte-stream handling, uses `cl_path` for lexical path
+handling, uses `cl_utf8` for input validation, uses `cl_ascii` for locale-free
+byte classification, and uses `cl_libc` helpers for bounded byte and string
+operations. Notes live in [docs/examples.md](docs/examples.md).
 
 Project conventions live in [AGENTS.md](AGENTS.md). Documentation lives in
 [docs/](docs/) and should be updated alongside code changes. The project

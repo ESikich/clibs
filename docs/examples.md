@@ -15,6 +15,7 @@ working together in one small program:
 - `cl_alloc` supplies a free-list allocator wrapped by the debug allocator, plus
   arena scratch storage and a fixed-size pool allocation.
 - `cl_hash` maps item names to parsed records without taking ownership of keys.
+- `cl_bitset` marks selected parsed records with fixed caller-owned storage.
 - `cl_buffer` demonstrates a caller-owned ring buffer for bounded byte-stream
   handling.
 - `cl_file` writes the example input to a temporary file and reads it back into

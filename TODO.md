@@ -52,7 +52,7 @@ paths as well as fast paths.
 - [x] `string-view`: non-owning string slices, trimming, splitting, parsing
   helpers.
 - [x] `buffer`: byte buffers, growable arrays, ring buffers.
-- [ ] `bitset`: fixed and dynamic bitsets, bit operations, bit scans.
+- [x] `bitset`: fixed and dynamic bitsets, bit operations, bit scans.
 - [ ] `endian`: byte-order conversion, unaligned loads/stores.
 - [ ] `atomics`: thin wrappers around atomics or compiler intrinsics.
 - [ ] `time`: monotonic clock, duration math, timers.
@@ -142,6 +142,7 @@ Foundation work completed:
 - [x] reusable microbenchmark helper
 - [x] macro-generated typed dynamic arrays with checked growth
 - [x] growable byte buffers and caller-owned ring buffers
+- [x] fixed-storage and allocator-backed bitsets with scans and boolean ops
 - [x] non-owning byte-key hash table with FNV-1a helpers
 - [x] POSIX whole-file read/write helpers
 - [x] POSIX streaming file helpers

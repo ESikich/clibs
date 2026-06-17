@@ -51,3 +51,9 @@ those APIs either touch filesystem state or may mutate caller-provided buffers.
 `cl_ascii` intentionally avoids `<ctype.h>` so classification and case
 conversion are independent of the current locale and well-defined for negative
 values and bytes above `0x7f`.
+
+## Bit Operations
+
+`cl_bitset` uses portable `size_t` word operations and explicit loops for
+population counts and bit scans. It intentionally avoids compiler-specific
+popcount and bit-scan intrinsics so behavior stays within the C99 baseline.

@@ -8,6 +8,7 @@
 #include "cl_alloc.h"
 #include "cl_array.h"
 #include "cl_ascii.h"
+#include "cl_bitset.h"
 #include "cl_buffer.h"
 #include "cl_file.h"
 #include "cl_hash.h"
@@ -247,6 +248,27 @@ static void preview_name_stream(const item_array *items)
     printf("ring preview: %s", out);
 }
 
+static void print_large_item_count(const item_array *items)
+{
+    size_t storage[1];
+    cl_bitset large_items;
+    size_t i;
+
+    if (!items ||
+        !cl_bitset_init_with_storage(
+            &large_items, storage, sizeof(storage), items->size)) {
+        return;
+    }
+
+    for (i = 0u; i < items->size; ++i) {
+        if (items->data[i].count >= 4u) {
+            (void)cl_bitset_set(&large_items, i);
+        }
+    }
+
+    printf("large item slots: %zu\n", cl_bitset_count(&large_items));
+}
+
 int main(void)
 {
     static unsigned char list_storage[4096];
@@ -329,6 +351,7 @@ int main(void)
     cl_arena_init(&scratch, arena_storage, sizeof(arena_storage));
     print_report(&items, &scratch);
     printf("total      %" PRIu64 "\n", total_count(&items));
+    print_large_item_count(&items);
 
     cl_hash_table_init(&name_index, &tracked);
     if (!index_items(&items, &name_index)) {
