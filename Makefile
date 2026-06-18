@@ -19,6 +19,7 @@ BUFFER_OBJ = $(BUILD_DIR)/cl_buffer.o
 ENDIAN_OBJ = $(BUILD_DIR)/cl_endian.o
 FILE_OBJ = $(BUILD_DIR)/cl_file.o
 HASH_OBJ = $(BUILD_DIR)/cl_hash.o
+HEAP_OBJ = $(BUILD_DIR)/cl_heap.o
 LIBC_OBJ = $(BUILD_DIR)/cl_libc.o
 LIST_OBJ = $(BUILD_DIR)/cl_list.o
 MAP_OBJ = $(BUILD_DIR)/cl_map.o
@@ -39,6 +40,7 @@ TEST_ASCII = $(BUILD_DIR)/test_ascii
 TEST_BITSET = $(BUILD_DIR)/test_bitset
 TEST_FILE = $(BUILD_DIR)/test_file
 TEST_HASH = $(BUILD_DIR)/test_hash
+TEST_HEAP = $(BUILD_DIR)/test_heap
 TEST_LIBC = $(BUILD_DIR)/test_libc
 TEST_LIST = $(BUILD_DIR)/test_list
 TEST_MAP = $(BUILD_DIR)/test_map
@@ -50,8 +52,9 @@ TEST_SV = $(BUILD_DIR)/test_sv
 TEST_TIME = $(BUILD_DIR)/test_time
 TEST_UTF8 = $(BUILD_DIR)/test_utf8
 BENCH_ALLOC = $(BUILD_DIR)/bench_alloc
+BENCH_CONTAINERS = $(BUILD_DIR)/bench_containers
 
-all: $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_ATOMIC) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_LIST) $(TEST_MAP) $(TEST_PATH) $(TEST_PRIORITY_QUEUE) $(TEST_QUEUE) $(TEST_SET) $(TEST_SV) $(TEST_TIME) $(TEST_UTF8) $(BENCH_ALLOC) $(EXAMPLE_OVERVIEW)
+all: $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_ATOMIC) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_HEAP) $(TEST_LIBC) $(TEST_LIST) $(TEST_MAP) $(TEST_PATH) $(TEST_PRIORITY_QUEUE) $(TEST_QUEUE) $(TEST_SET) $(TEST_SV) $(TEST_TIME) $(TEST_UTF8) $(BENCH_ALLOC) $(BENCH_CONTAINERS) $(EXAMPLE_OVERVIEW)
 
 $(ALLOC_OBJ): src/cl_alloc.c include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
@@ -88,6 +91,10 @@ $(FILE_OBJ): src/cl_file.c include/cl_file.h include/cl_buffer.h include/cl_allo
 $(HASH_OBJ): src/cl_hash.c include/cl_hash.h include/cl_alloc.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_hash.c -o $@
+
+$(HEAP_OBJ): src/cl_heap.c include/cl_heap.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/cl_heap.c -o $@
 
 $(LIBC_OBJ): src/cl_libc.c include/cl_libc.h
 	mkdir -p $(BUILD_DIR)
@@ -165,6 +172,10 @@ $(TEST_HASH): tests/test_hash.c $(HASH_OBJ) $(ALLOC_OBJ) include/cl_hash.h inclu
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_hash.c $(HASH_OBJ) $(ALLOC_OBJ) -o $@
 
+$(TEST_HEAP): tests/test_heap.c $(HEAP_OBJ) include/cl_heap.h include/cl_test.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_heap.c $(HEAP_OBJ) -o $@
+
 $(TEST_LIBC): tests/test_libc.c $(LIBC_OBJ) include/cl_libc.h include/cl_test.h
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_libc.c $(LIBC_OBJ) -o $@
@@ -209,11 +220,15 @@ $(BENCH_ALLOC): bench/bench_alloc.c $(ALLOC_OBJ) include/cl_alloc.h include/cl_b
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) bench/bench_alloc.c $(ALLOC_OBJ) -o $@
 
-$(EXAMPLE_OVERVIEW): examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(ATOMIC_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(LIST_OBJ) $(MAP_OBJ) $(PATH_OBJ) $(PRIORITY_QUEUE_OBJ) $(QUEUE_OBJ) $(SET_OBJ) $(SV_OBJ) $(TIME_OBJ) $(UTF8_OBJ) include/cl_alloc.h include/cl_array.h include/cl_ascii.h include/cl_atomic.h include/cl_bitset.h include/cl_buffer.h include/cl_endian.h include/cl_file.h include/cl_hash.h include/cl_libc.h include/cl_list.h include/cl_map.h include/cl_path.h include/cl_priority_queue.h include/cl_queue.h include/cl_set.h include/cl_sv.h include/cl_time.h include/cl_utf8.h
+$(BENCH_CONTAINERS): bench/bench_containers.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(HASH_OBJ) $(HEAP_OBJ) $(LIST_OBJ) $(MAP_OBJ) $(PRIORITY_QUEUE_OBJ) $(QUEUE_OBJ) $(SET_OBJ) include/cl_alloc.h include/cl_array.h include/cl_bench.h include/cl_bitset.h include/cl_buffer.h include/cl_hash.h include/cl_heap.h include/cl_list.h include/cl_map.h include/cl_priority_queue.h include/cl_queue.h include/cl_set.h
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(ATOMIC_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(LIBC_OBJ) $(LIST_OBJ) $(MAP_OBJ) $(PATH_OBJ) $(PRIORITY_QUEUE_OBJ) $(QUEUE_OBJ) $(SET_OBJ) $(SV_OBJ) $(TIME_OBJ) $(UTF8_OBJ) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) bench/bench_containers.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(HASH_OBJ) $(HEAP_OBJ) $(LIST_OBJ) $(MAP_OBJ) $(PRIORITY_QUEUE_OBJ) $(QUEUE_OBJ) $(SET_OBJ) -o $@
 
-test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_ATOMIC) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_LIBC) $(TEST_LIST) $(TEST_MAP) $(TEST_PATH) $(TEST_PRIORITY_QUEUE) $(TEST_QUEUE) $(TEST_SET) $(TEST_SV) $(TEST_TIME) $(TEST_UTF8)
+$(EXAMPLE_OVERVIEW): examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(ATOMIC_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(HEAP_OBJ) $(LIBC_OBJ) $(LIST_OBJ) $(MAP_OBJ) $(PATH_OBJ) $(PRIORITY_QUEUE_OBJ) $(QUEUE_OBJ) $(SET_OBJ) $(SV_OBJ) $(TIME_OBJ) $(UTF8_OBJ) include/cl_alloc.h include/cl_array.h include/cl_ascii.h include/cl_atomic.h include/cl_bitset.h include/cl_buffer.h include/cl_endian.h include/cl_file.h include/cl_hash.h include/cl_heap.h include/cl_libc.h include/cl_list.h include/cl_map.h include/cl_path.h include/cl_priority_queue.h include/cl_queue.h include/cl_set.h include/cl_sv.h include/cl_time.h include/cl_utf8.h
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) examples/overview.c $(ALLOC_OBJ) $(ARRAY_OBJ) $(ASCII_OBJ) $(ATOMIC_OBJ) $(BITSET_OBJ) $(BUFFER_OBJ) $(ENDIAN_OBJ) $(FILE_OBJ) $(HASH_OBJ) $(HEAP_OBJ) $(LIBC_OBJ) $(LIST_OBJ) $(MAP_OBJ) $(PATH_OBJ) $(PRIORITY_QUEUE_OBJ) $(QUEUE_OBJ) $(SET_OBJ) $(SV_OBJ) $(TIME_OBJ) $(UTF8_OBJ) -o $@
+
+test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_ATOMIC) $(TEST_BITSET) $(TEST_BUFFER) $(TEST_ENDIAN) $(TEST_FILE) $(TEST_HASH) $(TEST_HEAP) $(TEST_LIBC) $(TEST_LIST) $(TEST_MAP) $(TEST_PATH) $(TEST_PRIORITY_QUEUE) $(TEST_QUEUE) $(TEST_SET) $(TEST_SV) $(TEST_TIME) $(TEST_UTF8)
 	$(TEST_ALLOC)
 	$(TEST_ARRAY)
 	$(TEST_ASCII)
@@ -223,6 +238,7 @@ test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_ATOMIC) $(TEST_BITS
 	$(TEST_ENDIAN)
 	$(TEST_FILE)
 	$(TEST_HASH)
+	$(TEST_HEAP)
 	$(TEST_LIBC)
 	$(TEST_LIST)
 	$(TEST_MAP)
@@ -234,8 +250,9 @@ test: FORCE $(TEST_ALLOC) $(TEST_ARRAY) $(TEST_ASCII) $(TEST_ATOMIC) $(TEST_BITS
 	$(TEST_TIME)
 	$(TEST_UTF8)
 
-bench: FORCE $(BENCH_ALLOC)
+bench: FORCE $(BENCH_ALLOC) $(BENCH_CONTAINERS)
 	$(BENCH_ALLOC)
+	$(BENCH_CONTAINERS)
 
 example: FORCE $(EXAMPLE_OVERVIEW)
 	$(EXAMPLE_OVERVIEW)

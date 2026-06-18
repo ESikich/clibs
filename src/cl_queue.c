@@ -19,10 +19,6 @@ static size_t cl_queue_tail_index(const cl_queue *queue)
 {
     size_t tail;
 
-    if (!cl_queue_ready(queue)) {
-        return 0u;
-    }
-
     if (queue->size >= queue->capacity - queue->head) {
         tail = queue->size - (queue->capacity - queue->head);
     } else {
@@ -34,6 +30,23 @@ static size_t cl_queue_tail_index(const cl_queue *queue)
 static unsigned char *cl_queue_slot(cl_queue *queue, size_t index)
 {
     return queue->data + (index * queue->element_size);
+}
+
+static void cl_queue_copy_element(void *dst, const void *src, size_t size)
+{
+    if (size == 8u) {
+        memcpy(dst, src, 8u);
+        return;
+    }
+    if (size == 4u) {
+        memcpy(dst, src, 4u);
+        return;
+    }
+    if (size == 2u) {
+        memcpy(dst, src, 2u);
+        return;
+    }
+    memcpy(dst, src, size);
 }
 
 void cl_queue_init(
@@ -121,7 +134,10 @@ bool cl_queue_push(cl_queue *queue, const void *element)
     }
 
     tail = cl_queue_tail_index(queue);
-    memcpy(cl_queue_slot(queue, tail), element, queue->element_size);
+    cl_queue_copy_element(
+        cl_queue_slot(queue, tail),
+        element,
+        queue->element_size);
     ++queue->size;
     return true;
 }
@@ -133,7 +149,10 @@ bool cl_queue_pop(cl_queue *queue, void *out)
     }
 
     if (out) {
-        memcpy(out, cl_queue_slot(queue, queue->head), queue->element_size);
+        cl_queue_copy_element(
+            out,
+            cl_queue_slot(queue, queue->head),
+            queue->element_size);
     }
 
     ++queue->head;

@@ -18,6 +18,7 @@ typedef struct cl_map_node {
     size_t key_size;
     void *value;
     int height;
+    unsigned char first_byte;
 } cl_map_node;
 
 static size_t cl_map_node_align(void)
@@ -63,6 +64,35 @@ static int cl_map_key_compare(
     size_t shared = left_size < right_size ? left_size : right_size;
     int cmp = 0;
 
+    if (left == right && left_size == right_size) {
+        return 0;
+    }
+
+    if (left_size == right_size && left_size == 8u) {
+        const unsigned char *a = (const unsigned char *)left;
+        const unsigned char *b = (const unsigned char *)right;
+        size_t i;
+
+        for (i = 0u; i < 8u; ++i) {
+            if (a[i] != b[i]) {
+                return a[i] < b[i] ? -1 : 1;
+            }
+        }
+        return 0;
+    }
+    if (left_size == right_size && left_size == 4u) {
+        const unsigned char *a = (const unsigned char *)left;
+        const unsigned char *b = (const unsigned char *)right;
+        size_t i;
+
+        for (i = 0u; i < 4u; ++i) {
+            if (a[i] != b[i]) {
+                return a[i] < b[i] ? -1 : 1;
+            }
+        }
+        return 0;
+    }
+
     if (shared != 0u) {
         cmp = memcmp(left, right, shared);
         if (cmp != 0) {
@@ -77,6 +107,27 @@ static int cl_map_key_compare(
         return 1;
     }
     return 0;
+}
+
+static int cl_map_compare_node_key(
+    const void *key,
+    size_t key_size,
+    const cl_map_node *node)
+{
+    unsigned char first;
+
+    if (key == node->key && key_size == node->key_size) {
+        return 0;
+    }
+    if (key_size == 0u || node->key_size == 0u) {
+        return cl_map_key_compare(key, key_size, node->key, node->key_size);
+    }
+
+    first = ((const unsigned char *)key)[0];
+    if (first != node->first_byte) {
+        return first < node->first_byte ? -1 : 1;
+    }
+    return cl_map_key_compare(key, key_size, node->key, node->key_size);
 }
 
 static cl_map_node *cl_map_min_node(cl_map_node *node)
@@ -189,9 +240,14 @@ static cl_map_node *cl_map_rebalance_node(cl_map *map, cl_map_node *node)
 static void cl_map_rebalance_from(cl_map *map, cl_map_node *node)
 {
     while (node) {
-        cl_map_node *next = node->parent;
+        int old_height = node->height;
+        cl_map_node *next;
+
         node = cl_map_rebalance_node(map, node);
-        next = node->parent ? node->parent : next;
+        next = node->parent;
+        if (node->height == old_height) {
+            break;
+        }
         node = next;
     }
 }
@@ -220,7 +276,7 @@ static cl_map_node *cl_map_find_node(
     node = (cl_map_node *)map->root;
     while (node) {
         parent = node;
-        cmp = cl_map_key_compare(key, key_size, node->key, node->key_size);
+        cmp = cl_map_compare_node_key(key, key_size, node);
         if (cmp == 0) {
             if (out_parent) {
                 *out_parent = parent;
@@ -238,6 +294,29 @@ static cl_map_node *cl_map_find_node(
     }
     if (out_cmp) {
         *out_cmp = cmp;
+    }
+    return NULL;
+}
+
+static cl_map_node *cl_map_find_existing_node(
+    const cl_map *map,
+    const void *key,
+    size_t key_size)
+{
+    cl_map_node *node;
+
+    if (!map) {
+        return NULL;
+    }
+
+    node = (cl_map_node *)map->root;
+    while (node) {
+        int cmp = cl_map_compare_node_key(key, key_size, node);
+
+        if (cmp == 0) {
+            return node;
+        }
+        node = cmp < 0 ? node->left : node->right;
     }
     return NULL;
 }
@@ -301,6 +380,7 @@ static void cl_map_remove_node(cl_map *map, cl_map_node *node)
         node->key = successor->key;
         node->key_size = successor->key_size;
         node->value = successor->value;
+        node->first_byte = successor->first_byte;
         node = successor;
     }
 
@@ -387,6 +467,7 @@ bool cl_map_put(cl_map *map, const void *key, size_t key_size, void *value)
     node->key_size = key_size;
     node->value = value;
     node->height = 1;
+    node->first_byte = key_size == 0u ? 0u : ((const unsigned char *)key)[0];
 
     if (!parent) {
         map->root = node;
@@ -413,7 +494,7 @@ bool cl_map_get(
         return false;
     }
 
-    node = cl_map_find_node(map, key, key_size, NULL, NULL);
+    node = cl_map_find_existing_node(map, key, key_size);
     if (!node) {
         return false;
     }
@@ -441,7 +522,7 @@ bool cl_map_remove(
         return false;
     }
 
-    node = cl_map_find_node(map, key, key_size, NULL, NULL);
+    node = cl_map_find_existing_node(map, key, key_size);
     if (!node) {
         return false;
     }

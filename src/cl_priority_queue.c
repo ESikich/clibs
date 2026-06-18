@@ -56,11 +56,57 @@ static void cl_priority_queue_swap(
 
     left_slot = cl_priority_queue_slot(queue, left);
     right_slot = cl_priority_queue_slot(queue, right);
+
+    if (queue->element_size == 8u) {
+        unsigned char tmp[8];
+
+        memcpy(tmp, left_slot, sizeof(tmp));
+        memcpy(left_slot, right_slot, sizeof(tmp));
+        memcpy(right_slot, tmp, sizeof(tmp));
+        return;
+    }
+    if (queue->element_size == 4u) {
+        unsigned char tmp[4];
+
+        memcpy(tmp, left_slot, sizeof(tmp));
+        memcpy(left_slot, right_slot, sizeof(tmp));
+        memcpy(right_slot, tmp, sizeof(tmp));
+        return;
+    }
+    if (queue->element_size == 2u) {
+        unsigned char tmp[2];
+
+        memcpy(tmp, left_slot, sizeof(tmp));
+        memcpy(left_slot, right_slot, sizeof(tmp));
+        memcpy(right_slot, tmp, sizeof(tmp));
+        return;
+    }
+
     for (i = 0u; i < queue->element_size; ++i) {
         unsigned char tmp = left_slot[i];
         left_slot[i] = right_slot[i];
         right_slot[i] = tmp;
     }
+}
+
+static void cl_priority_queue_copy(
+    void *dst,
+    const void *src,
+    size_t element_size)
+{
+    if (element_size == 8u) {
+        memcpy(dst, src, 8u);
+        return;
+    }
+    if (element_size == 4u) {
+        memcpy(dst, src, 4u);
+        return;
+    }
+    if (element_size == 2u) {
+        memcpy(dst, src, 2u);
+        return;
+    }
+    memcpy(dst, src, element_size);
 }
 
 static void cl_priority_queue_sift_up(cl_priority_queue *queue, size_t index)
@@ -190,7 +236,7 @@ bool cl_priority_queue_push(cl_priority_queue *queue, const void *element)
         return false;
     }
 
-    memcpy(
+    cl_priority_queue_copy(
         cl_priority_queue_slot(queue, queue->size),
         element,
         queue->element_size);
@@ -206,12 +252,15 @@ bool cl_priority_queue_pop(cl_priority_queue *queue, void *out)
     }
 
     if (out) {
-        memcpy(out, cl_priority_queue_slot(queue, 0u), queue->element_size);
+        cl_priority_queue_copy(
+            out,
+            cl_priority_queue_slot(queue, 0u),
+            queue->element_size);
     }
 
     --queue->size;
     if (queue->size != 0u) {
-        memcpy(
+        cl_priority_queue_copy(
             cl_priority_queue_slot(queue, 0u),
             cl_priority_queue_slot(queue, queue->size),
             queue->element_size);

@@ -19,6 +19,7 @@ This directory holds project documentation that should move with the code.
 - [Endian Library](cl_endian.md)
 - [File Library](cl_file.md)
 - [Hash Library](cl_hash.md)
+- [Heap Library](cl_heap.md)
 - [libc-mini Library](cl_libc.md)
 - [List Library](cl_list.md)
 - [Map Library](cl_map.md)

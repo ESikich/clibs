@@ -18,6 +18,7 @@ working together in one small program:
 - `cl_set` records unique item names without placeholder values.
 - `cl_map` keeps item names in byte-lexicographic order for ordered lookup.
 - `cl_list` queues a pool-allocated event through an embedded intrusive node.
+- `cl_heap` heapifies caller-owned pointer arrays without allocation.
 - `cl_queue` stores pointers in a caller-owned FIFO ring queue.
 - `cl_priority_queue` orders pointers with a comparator over caller-owned
   storage.

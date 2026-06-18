@@ -66,7 +66,7 @@ paths as well as fast paths.
 - [x] `hash`: hash functions plus hash table.
 - [x] `set`: hash set / bitset-backed set.
 - [x] `map`: ordered map, maybe tree-based.
-- [ ] `heap`: binary heap.
+- [x] `heap`: binary heap.
 - [ ] `trie`: byte trie or radix tree.
 - [ ] `graph`: adjacency lists, traversal helpers.
 
@@ -158,3 +158,4 @@ Foundation work completed:
 - [x] allocation-free fixed-capacity comparator-based priority queues
 - [x] allocator-backed ordered byte-key maps
 - [x] non-owning byte-key hash set
+- [x] allocation-free binary heap algorithms over caller-owned arrays

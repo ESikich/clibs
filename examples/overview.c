@@ -14,6 +14,7 @@
 #include "cl_endian.h"
 #include "cl_file.h"
 #include "cl_hash.h"
+#include "cl_heap.h"
 #include "cl_libc.h"
 #include "cl_list.h"
 #include "cl_map.h"
@@ -397,6 +398,36 @@ static void preview_item_priority_queue(const item_array *items)
     }
 }
 
+static void preview_item_heap(const item_array *items)
+{
+    const item *storage[4];
+    const item *top;
+    size_t count = 0u;
+    size_t i;
+
+    if (!items) {
+        return;
+    }
+
+    for (i = 0u;
+         i < items->size && i < (sizeof(storage) / sizeof(storage[0]));
+         ++i) {
+        storage[count++] = &items->data[i];
+    }
+    if (count == 0u ||
+        !cl_heap_make(
+            storage,
+            count,
+            sizeof(storage[0]),
+            compare_item_count_desc,
+            NULL)) {
+        return;
+    }
+
+    top = storage[0];
+    printf("heap first: %s\n", top->name);
+}
+
 static void print_large_item_count(const item_array *items)
 {
     size_t storage[1];
@@ -599,6 +630,7 @@ int main(void)
         return 1;
     }
     preview_item_queue(&items);
+    preview_item_heap(&items);
     preview_item_priority_queue(&items);
     preview_name_stream(&items);
     if (cl_path_join("/tmp/clibs_overview", "../clibs_report.txt", report_path, sizeof(report_path), NULL)) {
