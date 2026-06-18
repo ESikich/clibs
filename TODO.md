@@ -61,7 +61,8 @@ paths as well as fast paths.
 
 - [x] `array`: typed or macro-based dynamic arrays.
 - [x] `list`: intrusive linked lists.
-- [ ] `queue`: FIFO queues, ring queues, priority queues.
+- [x] `queue`: allocation-free FIFO ring queues.
+- [ ] `priority-queue`: comparator-based priority queue.
 - [x] `hash`: hash functions plus hash table.
 - [ ] `map`: ordered map, maybe tree-based.
 - [ ] `set`: hash set / bitset-backed set.
@@ -153,3 +154,4 @@ Foundation work completed:
 - [x] compiler-atomic wrappers for integer and pointer state
 - [x] monotonic clock, checked duration math, and elapsed timer helpers
 - [x] allocation-free intrusive doubly linked lists
+- [x] allocation-free fixed-capacity FIFO ring queues

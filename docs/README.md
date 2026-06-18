@@ -22,6 +22,7 @@ This directory holds project documentation that should move with the code.
 - [libc-mini Library](cl_libc.md)
 - [List Library](cl_list.md)
 - [Path Library](cl_path.md)
+- [Queue Library](cl_queue.md)
 - [String-View Library](cl_sv.md)
 - [Time Library](cl_time.md)
 - [UTF-8 Library](cl_utf8.md)

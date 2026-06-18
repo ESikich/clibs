@@ -17,6 +17,7 @@
 #include "cl_libc.h"
 #include "cl_list.h"
 #include "cl_path.h"
+#include "cl_queue.h"
 #include "cl_sv.h"
 #include "cl_time.h"
 #include "cl_utf8.h"
@@ -263,6 +264,30 @@ static void preview_name_stream(const item_array *items)
     printf("ring preview: %s", out);
 }
 
+static void preview_item_queue(const item_array *items)
+{
+    const item *storage[4];
+    const item *queued;
+    cl_queue queue;
+    size_t i;
+
+    if (!items) {
+        return;
+    }
+
+    cl_queue_init(&queue, storage, sizeof(storage), sizeof(storage[0]));
+    for (i = 0u; i < items->size; ++i) {
+        queued = &items->data[i];
+        if (!cl_queue_push(&queue, &queued)) {
+            break;
+        }
+    }
+
+    if (cl_queue_pop(&queue, &queued)) {
+        printf("queue first: %s\n", queued->name);
+    }
+}
+
 static void print_large_item_count(const item_array *items)
 {
     size_t storage[1];
@@ -438,6 +463,7 @@ int main(void)
         cl_debug_allocator_release(&debug);
         return 1;
     }
+    preview_item_queue(&items);
     preview_name_stream(&items);
     if (cl_path_join("/tmp/clibs_overview", "../clibs_report.txt", report_path, sizeof(report_path), NULL)) {
         cl_path_view report_name = cl_path_basename(report_path);
