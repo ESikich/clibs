@@ -24,6 +24,7 @@ This directory holds project documentation that should move with the code.
 - [Path Library](cl_path.md)
 - [Priority Queue Library](cl_priority_queue.md)
 - [Queue Library](cl_queue.md)
+- [Set Library](cl_set.md)
 - [String-View Library](cl_sv.md)
 - [Time Library](cl_time.md)
 - [UTF-8 Library](cl_utf8.md)

@@ -15,6 +15,7 @@ working together in one small program:
 - `cl_alloc` supplies a free-list allocator wrapped by the debug allocator, plus
   arena scratch storage and a fixed-size pool allocation.
 - `cl_hash` maps item names to parsed records without taking ownership of keys.
+- `cl_set` records unique item names without placeholder values.
 - `cl_list` queues a pool-allocated event through an embedded intrusive node.
 - `cl_queue` stores pointers in a caller-owned FIFO ring queue.
 - `cl_priority_queue` orders pointers with a comparator over caller-owned

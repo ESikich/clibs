@@ -67,6 +67,9 @@ terminator after the read bytes.
 `cl_hash` provides FNV-1a 64-bit hashing and an allocator-backed hash table for
 non-owning byte keys with caller-owned pointer values.
 
+`cl_set` provides an allocator-backed hash set for non-owning byte keys without
+requiring placeholder values.
+
 `cl_path` provides lexical POSIX path normalization, joining, basename, and
 dirname helpers over caller-owned buffers and non-owning views.
 
@@ -108,7 +111,8 @@ The example in [examples/overview.c](examples/overview.c) parses records with
 `cl_sv`, stores them in a `cl_array`, backs allocations with `cl_alloc`, uses
 `cl_hash` for name lookups, uses `cl_atomic` to publish a count, uses
 `cl_bitset` to mark selected records, uses `cl_buffer` for bounded byte-stream
-handling, uses `cl_endian` for explicit binary byte order, uses `cl_list` for
+handling, uses `cl_endian` for explicit binary byte order, uses `cl_set` to
+record unique names, uses `cl_list` for
 allocation-free event ordering, uses `cl_queue` for caller-owned FIFO storage,
 uses `cl_priority_queue` for comparator-ordered caller-owned storage, uses
 `cl_path` for lexical path handling, uses `cl_time` to measure elapsed runtime,

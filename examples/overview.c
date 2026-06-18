@@ -19,6 +19,7 @@
 #include "cl_path.h"
 #include "cl_priority_queue.h"
 #include "cl_queue.h"
+#include "cl_set.h"
 #include "cl_sv.h"
 #include "cl_time.h"
 #include "cl_utf8.h"
@@ -165,6 +166,24 @@ static bool index_items(const item_array *items, cl_hash_table *index)
         }
     }
 
+    return true;
+}
+
+static bool record_unique_names(const item_array *items, cl_set *names)
+{
+    size_t i;
+
+    if (!items || !names) {
+        return false;
+    }
+
+    for (i = 0u; i < items->size; ++i) {
+        if (!cl_set_insert_cstr(names, items->data[i].name)) {
+            return false;
+        }
+    }
+
+    printf("unique names: %zu\n", cl_set_size(names));
     return true;
 }
 
@@ -401,6 +420,7 @@ int main(void)
     cl_pool pool;
     cl_allocator pool_allocator;
     cl_hash_table name_index;
+    cl_set unique_names;
     cl_file_data input_file;
     cl_atomic_size published_count;
     cl_timer timer;
@@ -494,6 +514,15 @@ int main(void)
         const item *pears = (const item *)found;
         printf("lookup     %s=%" PRIu64 "\n", pears->name, pears->count);
     }
+    cl_set_init(&unique_names, &tracked);
+    if (!record_unique_names(&items, &unique_names)) {
+        fputs("set failed\n", stderr);
+        cl_set_free(&unique_names);
+        cl_hash_table_free(&name_index);
+        item_array_free(&items);
+        cl_debug_allocator_release(&debug);
+        return 1;
+    }
 
     if (!cl_pool_init(
             &pool,
@@ -502,6 +531,7 @@ int main(void)
             sizeof(event),
             CL_ALIGNOF_TYPE(event))) {
         fputs("pool init failed\n", stderr);
+        cl_set_free(&unique_names);
         cl_hash_table_free(&name_index);
         item_array_free(&items);
         cl_debug_allocator_release(&debug);
@@ -511,6 +541,7 @@ int main(void)
     pool_allocator = cl_pool_allocator(&pool);
     if (items.size != 0u && !queue_event(&pool_allocator, &items.data[0])) {
         fputs("event allocation failed\n", stderr);
+        cl_set_free(&unique_names);
         cl_hash_table_free(&name_index);
         item_array_free(&items);
         cl_debug_allocator_release(&debug);
@@ -543,6 +574,7 @@ int main(void)
         printf("elapsed: %.6f seconds\n", cl_duration_as_seconds(elapsed));
     }
 
+    cl_set_free(&unique_names);
     cl_hash_table_free(&name_index);
     item_array_free(&items);
     printf("after free: debug live=%zu\n", debug.live_bytes);
