@@ -17,6 +17,7 @@
 #include "cl_libc.h"
 #include "cl_list.h"
 #include "cl_path.h"
+#include "cl_priority_queue.h"
 #include "cl_queue.h"
 #include "cl_sv.h"
 #include "cl_time.h"
@@ -288,6 +289,58 @@ static void preview_item_queue(const item_array *items)
     }
 }
 
+static int compare_item_count_desc(
+    const void *left,
+    const void *right,
+    void *user)
+{
+    const item *const *a = (const item *const *)left;
+    const item *const *b = (const item *const *)right;
+
+    (void)user;
+    if ((*a)->count > (*b)->count) {
+        return 1;
+    }
+    if ((*a)->count < (*b)->count) {
+        return -1;
+    }
+    return 0;
+}
+
+static void preview_item_priority_queue(const item_array *items)
+{
+    const item *storage[4];
+    const item *queued;
+    const item *top;
+    const void *peeked;
+    cl_priority_queue queue;
+    size_t i;
+
+    if (!items) {
+        return;
+    }
+
+    cl_priority_queue_init(
+        &queue,
+        storage,
+        sizeof(storage),
+        sizeof(storage[0]),
+        compare_item_count_desc,
+        NULL);
+    for (i = 0u; i < items->size; ++i) {
+        queued = &items->data[i];
+        if (!cl_priority_queue_push(&queue, &queued)) {
+            break;
+        }
+    }
+
+    peeked = cl_priority_queue_peek(&queue);
+    if (peeked) {
+        top = *(const item *const *)peeked;
+        printf("priority first: %s\n", top->name);
+    }
+}
+
 static void print_large_item_count(const item_array *items)
 {
     size_t storage[1];
@@ -464,6 +517,7 @@ int main(void)
         return 1;
     }
     preview_item_queue(&items);
+    preview_item_priority_queue(&items);
     preview_name_stream(&items);
     if (cl_path_join("/tmp/clibs_overview", "../clibs_report.txt", report_path, sizeof(report_path), NULL)) {
         cl_path_view report_name = cl_path_basename(report_path);

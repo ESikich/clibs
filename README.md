@@ -70,6 +70,9 @@ non-owning byte keys with caller-owned pointer values.
 `cl_path` provides lexical POSIX path normalization, joining, basename, and
 dirname helpers over caller-owned buffers and non-owning views.
 
+`cl_priority_queue` provides allocation-free fixed-capacity binary priority
+queues over caller-owned storage and comparator-defined element ordering.
+
 `cl_queue` provides allocation-free fixed-capacity FIFO ring queues over
 caller-owned storage and caller-specified element sizes.
 
@@ -107,9 +110,10 @@ The example in [examples/overview.c](examples/overview.c) parses records with
 `cl_bitset` to mark selected records, uses `cl_buffer` for bounded byte-stream
 handling, uses `cl_endian` for explicit binary byte order, uses `cl_list` for
 allocation-free event ordering, uses `cl_queue` for caller-owned FIFO storage,
-uses `cl_path` for lexical path handling, uses `cl_time` to measure elapsed
-runtime, uses `cl_utf8` for input validation, uses `cl_ascii` for locale-free
-byte classification, and uses `cl_libc` helpers for bounded byte and string
+uses `cl_priority_queue` for comparator-ordered caller-owned storage, uses
+`cl_path` for lexical path handling, uses `cl_time` to measure elapsed runtime,
+uses `cl_utf8` for input validation, uses `cl_ascii` for locale-free byte
+classification, and uses `cl_libc` helpers for bounded byte and string
 operations. Notes live in [docs/examples.md](docs/examples.md).
 
 Project conventions live in [AGENTS.md](AGENTS.md). Documentation lives in
