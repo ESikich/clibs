@@ -65,7 +65,7 @@ paths as well as fast paths.
 - [x] `priority-queue`: comparator-based priority queue.
 - [x] `hash`: hash functions plus hash table.
 - [x] `set`: hash set / bitset-backed set.
-- [ ] `map`: ordered map, maybe tree-based.
+- [x] `map`: ordered map, maybe tree-based.
 - [ ] `heap`: binary heap.
 - [ ] `trie`: byte trie or radix tree.
 - [ ] `graph`: adjacency lists, traversal helpers.
@@ -156,4 +156,5 @@ Foundation work completed:
 - [x] allocation-free intrusive doubly linked lists
 - [x] allocation-free fixed-capacity FIFO ring queues
 - [x] allocation-free fixed-capacity comparator-based priority queues
+- [x] allocator-backed ordered byte-key maps
 - [x] non-owning byte-key hash set

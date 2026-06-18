@@ -21,6 +21,7 @@ This directory holds project documentation that should move with the code.
 - [Hash Library](cl_hash.md)
 - [libc-mini Library](cl_libc.md)
 - [List Library](cl_list.md)
+- [Map Library](cl_map.md)
 - [Path Library](cl_path.md)
 - [Priority Queue Library](cl_priority_queue.md)
 - [Queue Library](cl_queue.md)

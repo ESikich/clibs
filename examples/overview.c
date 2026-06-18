@@ -16,6 +16,7 @@
 #include "cl_hash.h"
 #include "cl_libc.h"
 #include "cl_list.h"
+#include "cl_map.h"
 #include "cl_path.h"
 #include "cl_priority_queue.h"
 #include "cl_queue.h"
@@ -185,6 +186,42 @@ static bool record_unique_names(const item_array *items, cl_set *names)
 
     printf("unique names: %zu\n", cl_set_size(names));
     return true;
+}
+
+static bool index_items_ordered(const item_array *items, cl_map *index)
+{
+    size_t i;
+
+    if (!items || !index) {
+        return false;
+    }
+
+    for (i = 0u; i < items->size; ++i) {
+        if (!cl_map_put_cstr(
+                index,
+                items->data[i].name,
+                (void *)&items->data[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static void print_first_ordered_item(const cl_map *index)
+{
+    cl_map_iter iter;
+    const item *first;
+
+    if (!index) {
+        return;
+    }
+
+    iter = cl_map_first(index);
+    first = (const item *)cl_map_iter_value(iter);
+    if (first) {
+        printf("ordered first: %s\n", first->name);
+    }
 }
 
 static void make_example_path(char *path, size_t path_size)
@@ -420,6 +457,7 @@ int main(void)
     cl_pool pool;
     cl_allocator pool_allocator;
     cl_hash_table name_index;
+    cl_map ordered_names;
     cl_set unique_names;
     cl_file_data input_file;
     cl_atomic_size published_count;
@@ -514,10 +552,21 @@ int main(void)
         const item *pears = (const item *)found;
         printf("lookup     %s=%" PRIu64 "\n", pears->name, pears->count);
     }
+    cl_map_init(&ordered_names, &tracked);
+    if (!index_items_ordered(&items, &ordered_names)) {
+        fputs("ordered index failed\n", stderr);
+        cl_map_free(&ordered_names);
+        cl_hash_table_free(&name_index);
+        item_array_free(&items);
+        cl_debug_allocator_release(&debug);
+        return 1;
+    }
+    print_first_ordered_item(&ordered_names);
     cl_set_init(&unique_names, &tracked);
     if (!record_unique_names(&items, &unique_names)) {
         fputs("set failed\n", stderr);
         cl_set_free(&unique_names);
+        cl_map_free(&ordered_names);
         cl_hash_table_free(&name_index);
         item_array_free(&items);
         cl_debug_allocator_release(&debug);
@@ -532,6 +581,7 @@ int main(void)
             CL_ALIGNOF_TYPE(event))) {
         fputs("pool init failed\n", stderr);
         cl_set_free(&unique_names);
+        cl_map_free(&ordered_names);
         cl_hash_table_free(&name_index);
         item_array_free(&items);
         cl_debug_allocator_release(&debug);
@@ -542,6 +592,7 @@ int main(void)
     if (items.size != 0u && !queue_event(&pool_allocator, &items.data[0])) {
         fputs("event allocation failed\n", stderr);
         cl_set_free(&unique_names);
+        cl_map_free(&ordered_names);
         cl_hash_table_free(&name_index);
         item_array_free(&items);
         cl_debug_allocator_release(&debug);
@@ -575,6 +626,7 @@ int main(void)
     }
 
     cl_set_free(&unique_names);
+    cl_map_free(&ordered_names);
     cl_hash_table_free(&name_index);
     item_array_free(&items);
     printf("after free: debug live=%zu\n", debug.live_bytes);

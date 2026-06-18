@@ -2,7 +2,7 @@
  * cl_alloc.c
  * Purpose: Allocator implementations for system, arena, pool, free-list, and debug allocation.
  * POSIX target: POSIX.1-2008 compatible C99.
- * Date modified: 2026-06-17.
+ * Date modified: 2026-06-18.
  */
 
 #ifndef _POSIX_C_SOURCE
@@ -440,7 +440,7 @@ bool cl_pool_init(
     unsigned char *state;
     unsigned char *base;
     uintptr_t raw;
-    uintptr_t aligned;
+    uintptr_t aligned = 0u;
     uintptr_t end;
     size_t min_block_size;
     size_t stride;

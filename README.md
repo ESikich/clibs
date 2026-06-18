@@ -39,6 +39,9 @@ primitives: `cl_memset`, `cl_memcpy`, `cl_memmove`, `cl_memcmp`, `cl_strlen`,
 `cl_list` provides allocation-free intrusive doubly linked lists with O(1)
 push, pop, insert, and remove operations over caller-owned objects.
 
+`cl_map` provides an allocator-backed ordered map for non-owning byte keys with
+caller-owned pointer values and byte-lexicographic iteration.
+
 `cl_sv` provides non-owning byte string views with trimming, comparison,
 delimiter splitting, and checked decimal integer parsing.
 
@@ -112,7 +115,7 @@ The example in [examples/overview.c](examples/overview.c) parses records with
 `cl_hash` for name lookups, uses `cl_atomic` to publish a count, uses
 `cl_bitset` to mark selected records, uses `cl_buffer` for bounded byte-stream
 handling, uses `cl_endian` for explicit binary byte order, uses `cl_set` to
-record unique names, uses `cl_list` for
+record unique names, uses `cl_map` for ordered name lookup, uses `cl_list` for
 allocation-free event ordering, uses `cl_queue` for caller-owned FIFO storage,
 uses `cl_priority_queue` for comparator-ordered caller-owned storage, uses
 `cl_path` for lexical path handling, uses `cl_time` to measure elapsed runtime,
