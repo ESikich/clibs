@@ -2,7 +2,7 @@
  * overview.c
  * Purpose: End-to-end example using the core clibs libraries together.
  * POSIX target: POSIX.1-2008 compatible C99.
- * Date modified: 2026-06-17.
+ * Date modified: 2026-06-18.
  */
 
 #include "cl_alloc.h"
@@ -15,6 +15,7 @@
 #include "cl_file.h"
 #include "cl_hash.h"
 #include "cl_libc.h"
+#include "cl_list.h"
 #include "cl_path.h"
 #include "cl_sv.h"
 #include "cl_time.h"
@@ -33,6 +34,7 @@ typedef struct item {
 typedef struct event {
     const item *source;
     uint64_t doubled;
+    cl_list_node link;
 } event;
 
 CL_ARRAY_DEFINE(item_array, item)
@@ -209,12 +211,15 @@ static void print_report(const item_array *items, cl_arena *scratch)
 
 static bool queue_event(cl_allocator *allocator, const item *source)
 {
+    cl_list pending;
     event *queued;
+    event *front;
 
     if (!allocator || !source) {
         return false;
     }
 
+    cl_list_init(&pending);
     queued = cl_alloc(allocator, sizeof(*queued), CL_ALIGNOF_TYPE(event));
     if (!queued) {
         return false;
@@ -222,7 +227,14 @@ static bool queue_event(cl_allocator *allocator, const item *source)
 
     queued->source = source;
     queued->doubled = source->count * 2u;
-    printf("pool event: %s -> %" PRIu64 "\n", queued->source->name, queued->doubled);
+    cl_list_node_init(&queued->link);
+    if (!cl_list_push_back(&pending, &queued->link)) {
+        cl_free(allocator, queued, sizeof(*queued), CL_ALIGNOF_TYPE(event));
+        return false;
+    }
+
+    front = CL_CONTAINER_OF(cl_list_pop_front(&pending), event, link);
+    printf("pool event: %s -> %" PRIu64 "\n", front->source->name, front->doubled);
 
     cl_free(allocator, queued, sizeof(*queued), CL_ALIGNOF_TYPE(event));
     return true;

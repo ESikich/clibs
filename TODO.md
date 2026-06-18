@@ -2,7 +2,7 @@
 TODO.md
 Purpose: Project roadmap for low-level C libraries to build.
 POSIX target: POSIX.1-2008 compatible C99.
-Date modified: 2026-06-17.
+Date modified: 2026-06-18.
 -->
 
 # TODO
@@ -60,7 +60,7 @@ paths as well as fast paths.
 ## Data Structures
 
 - [x] `array`: typed or macro-based dynamic arrays.
-- [ ] `list`: intrusive linked lists.
+- [x] `list`: intrusive linked lists.
 - [ ] `queue`: FIFO queues, ring queues, priority queues.
 - [x] `hash`: hash functions plus hash table.
 - [ ] `map`: ordered map, maybe tree-based.
@@ -152,3 +152,4 @@ Foundation work completed:
 - [x] byte-order conversion and unaligned fixed-width integer load/store helpers
 - [x] compiler-atomic wrappers for integer and pointer state
 - [x] monotonic clock, checked duration math, and elapsed timer helpers
+- [x] allocation-free intrusive doubly linked lists

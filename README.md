@@ -2,7 +2,7 @@
 README.md
 Purpose: Project overview and quick-start instructions.
 POSIX target: POSIX.1-2008 compatible C99.
-Date modified: 2026-06-17.
+Date modified: 2026-06-18.
 -->
 
 # clibs
@@ -35,6 +35,9 @@ timing and compact benchmark reporting.
 `cl_libc` provides a tiny prefixed subset of libc-style memory and string
 primitives: `cl_memset`, `cl_memcpy`, `cl_memmove`, `cl_memcmp`, `cl_strlen`,
 `cl_strcmp`, and `cl_strchr`.
+
+`cl_list` provides allocation-free intrusive doubly linked lists with O(1)
+push, pop, insert, and remove operations over caller-owned objects.
 
 `cl_sv` provides non-owning byte string views with trimming, comparison,
 delimiter splitting, and checked decimal integer parsing.
@@ -99,7 +102,8 @@ The example in [examples/overview.c](examples/overview.c) parses records with
 `cl_sv`, stores them in a `cl_array`, backs allocations with `cl_alloc`, uses
 `cl_hash` for name lookups, uses `cl_atomic` to publish a count, uses
 `cl_bitset` to mark selected records, uses `cl_buffer` for bounded byte-stream
-handling, uses `cl_endian` for explicit binary byte order, uses `cl_path` for
+handling, uses `cl_endian` for explicit binary byte order, uses `cl_list` for
+allocation-free event ordering, uses `cl_path` for
 lexical path handling, uses `cl_time` to measure elapsed runtime, uses `cl_utf8`
 for input validation, uses `cl_ascii` for locale-free byte classification, and
 uses `cl_libc` helpers for bounded byte and string operations. Notes live in

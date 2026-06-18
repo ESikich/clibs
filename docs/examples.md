@@ -2,7 +2,7 @@
 examples.md
 Purpose: Example program guide for clibs.
 POSIX target: POSIX.1-2008 compatible C99.
-Date modified: 2026-06-17.
+Date modified: 2026-06-18.
 -->
 
 # Examples
@@ -15,6 +15,7 @@ working together in one small program:
 - `cl_alloc` supplies a free-list allocator wrapped by the debug allocator, plus
   arena scratch storage and a fixed-size pool allocation.
 - `cl_hash` maps item names to parsed records without taking ownership of keys.
+- `cl_list` queues a pool-allocated event through an embedded intrusive node.
 - `cl_atomic` publishes the compacted record count through an atomic size value.
 - `cl_bitset` marks selected parsed records with fixed caller-owned storage.
 - `cl_buffer` demonstrates a caller-owned ring buffer for bounded byte-stream
